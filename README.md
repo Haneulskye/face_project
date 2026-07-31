@@ -1,6 +1,6 @@
 # Face Project
 
-얼굴 인식(Face Recognition)과 홍채(Iris Recognition) 전처리를 위한 프로젝트입니다.
+얼굴 인식(Face Recognition)과 홍채(Iris Recognition) 전처리를 위한 프로젝트
 
 ## 프로젝트 구조
 
@@ -72,14 +72,14 @@ pip install -r requirements.txt
 
 ## 데이터셋
 
-GitHub에는 데이터셋이 포함되어 있지 않습니다.
+GitHub에는 데이터셋이 포함되어 있지 않음.
 
 필요한 데이터셋
 
 - CASIA Iris Interval
 - CASIA WebFace
 
-다운로드 후 아래와 같이 배치합니다.
+다운로드 후 아래와 같이 배치.
 
 ```
 datasets/
@@ -144,7 +144,7 @@ python src/recognize_face.py
 
 ## GitHub에 포함되지 않는 항목
 
-다음 항목은 용량 문제로 GitHub에 업로드하지 않습니다.
+다음 항목은 용량 문제로 GitHub에 업로드하지 않음.
 
 - datasets/
 - output/
