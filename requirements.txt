@@ -1,0 +1,11 @@
+opencv-python
+mediapipe==0.10.14
+numpy
+matplotlib
+torch
+torchvision
+scipy
+pandas
+tqdm
+Pillow
+kaggle
