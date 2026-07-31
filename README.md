@@ -153,7 +153,7 @@ python src/recognize_face.py
 
 ---
 
-## 팀원 안내
+## 기본 안내
 
 프로젝트를 처음 실행하는 경우
 
@@ -163,10 +163,3 @@ python src/recognize_face.py
 4. 데이터셋 다운로드
 5. 모델 다운로드
 6. 위 실행 순서대로 실행
-
----
-
-## 작성자
-
-- 학술제 Face Project Team
-- 
