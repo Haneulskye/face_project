@@ -163,3 +163,37 @@ python src/recognize_face.py
 4. 데이터셋 다운로드
 5. 모델 다운로드
 6. 위 실행 순서대로 실행
+
+#iris recognition module
+Iris Image
+      │
+      ▼
+Preprocessing
+      │
+      ▼
+ResNet18 Feature Extractor
+      │
+      ▼
+512-D Embedding Vector
+      │
+      ▼
+SQLite Database
+      │
+      ▼
+Cosine Similarity Matching
+      │
+      ▼
+Authentication Result
+
+{
+    "is_authenticated": True,
+    "name": "user_01",
+    "final_score": 0.928,
+    "details": {
+        "face_score": 0.82,
+        "iris_score": 1.00
+    }
+}
+
+# 현재 구현은 사전 학습된 ResNet18을 Feature Extractor로 활용한 프로토타입으로, 홍채 데이터셋에 대해 별도의 Fine-tuning은 수행하지 않았다.
+# 인증 성능은 입력 이미지의 품질과 조명 환경에 영향을 받을 수 있으며, 실제 서비스 적용을 위해서는 홍채 전용 데이터셋을 이용한 추가 학습 및 Threshold 최적화가 필요하다.
