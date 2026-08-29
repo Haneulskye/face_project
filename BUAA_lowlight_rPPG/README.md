@@ -234,3 +234,157 @@ EfficientPhys + BiGRU
 
 두 모델은 동일한 dataset split, window 설정, validation 조건에서 비교합니다.
 
+## Dataset
+
+### BUAA-MIHR
+
+This project uses the BUAA-MIHR dataset for evaluating rPPG estimation
+under different illumination conditions, with a particular focus on
+low-light environments.
+
+The dataset was provided by the IR & MCT Lab, School of Automation Science
+and Electrical Engineering, Beihang University (BUAA), for non-commercial
+academic research.
+
+### Dataset Characteristics
+
+BUAA-MIHR contains facial videos recorded under multiple illumination
+conditions.
+
+In our experiments, the following illumination levels are available:
+
+- 1.0 lux
+- 1.6 lux
+- 2.5 lux
+- 4.0 lux
+- 6.3 lux
+- 10 lux
+- 15.8 lux
+- 25.1 lux
+- 39.8 lux
+- 63.1 lux
+- 100 lux
+
+This allows the model to be evaluated across very dark to relatively
+well-illuminated environments.
+
+Our primary low-light evaluation uses:
+
+`1.0, 1.6, 2.5, and 4.0 lux`
+
+### Video Configuration
+
+Example BUAA-MIHR videos used in this project have the following properties:
+
+- Resolution: 640 × 480
+- Frame rate: 30 FPS
+- Duration: approximately 60 seconds
+- Frames per video: approximately 1800
+
+The dataset also provides physiological reference signals that can be
+aligned with the RGB video frames.
+
+### Ground-Truth Physiological Signal
+
+The provided PPG reference data contains:
+
+- Sampling frequency (`fs`)
+- PPG waveform (`data`)
+- Detected pulse peaks (`peaks`)
+
+For example, the PPG signal is sampled at approximately:
+
+`60 Hz`
+
+The PPG signal is temporally aligned with the video frames and used as
+the ground-truth BVP target for model training and evaluation.
+
+### Dataset Structure
+
+A typical BUAA-MIHR directory has the following structure:
+
+BUAA-MIHR/
+├── Sub 01/
+│   ├── Lux 1.0/
+│   │   ├── lux1.0_APH.avi
+│   │   ├── lux1.0_LXR.avi
+│   │   ├── lux1.0_SPH.avi
+│   │   ├── lux1.0.csv
+│   │   ├── lux1.0_LXR.csv
+│   │   ├── lux1.0_PPGData.mat
+│   │   └── lux1.0_SPH.csv
+│   ├── Lux 1.6/
+│   ├── Lux 2.5/
+│   └── ...
+├── Sub 02/
+└── ...
+
+### Dataset Processing
+
+The original videos are converted into temporal windows before being
+provided to the rPPG model.
+
+Current configuration:
+
+- Window length: 150 frames
+- Stride: 75 frames
+- Input frame size: 112 × 112
+- Input channels: RGB
+- Pixel range: [0, 1]
+
+At 30 FPS, a 150-frame window corresponds to approximately 5 seconds.
+
+The processed model input has the shape:
+
+`(T, C, H, W) = (150, 3, 112, 112)`
+
+### Subject Split
+
+The current experiments use subject-independent train/validation splits.
+
+Subjects used in the experiments:
+
+`01, 02, 03, 05, 06, 07, 08, 09, 10, 11, 12, 13`
+
+Multiple validation subject splits are used to evaluate whether the
+temporal model generalizes to unseen subjects.
+
+Example splits:
+
+| Split | Validation Subjects |
+|------|---------------------|
+| A | 07, 09 |
+| B | 05, 11 |
+| C | 03, 12 |
+
+The remaining subjects are used for training.
+
+### Low-Light Evaluation
+
+Although the model can be trained using a broader range of illumination
+conditions, validation is restricted to low-light samples using:
+
+`--val_max_lux 4.0`
+
+Therefore, the primary validation conditions are:
+
+`1.0 / 1.6 / 2.5 / 4.0 lux`
+
+This setup is intended to specifically measure rPPG robustness under
+challenging low-light conditions.
+
+### Dataset Availability
+
+BUAA-MIHR is **not included in this GitHub repository**.
+
+The dataset must be obtained through the official BUAA-MIHR access
+procedure and used according to the terms of the BUAA-MIHR Database
+Release Agreement.
+
+This repository contains only the code required to process the dataset,
+train the models, and reproduce the experimental pipeline.
+
+After obtaining the dataset, configure its local path using:
+
+python set_data_path.py --data_root /path/to/BUAA-MIHR
+
