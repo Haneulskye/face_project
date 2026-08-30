@@ -1,257 +1,83 @@
-# BUAA-MIHR EfficientPhys + BiGRU
+# BUAA-MIHR Low-Light rPPG
 
-BUAA-MIHR 저조도 rPPG 실험 코드입니다.
+## 1. Project Overview
 
-비교 모델:
-1. EfficientPhys (Baseline)
-2. EfficientPhys + BiGRU
+This project investigates robust remote photoplethysmography (rPPG)
+estimation under low-light conditions using the BUAA-MIHR dataset.
 
----
+The main objective is to improve rPPG estimation when the facial
+appearance and subtle skin-color variations become difficult to observe
+because of insufficient illumination.
 
-## 1. 실험 환경
+The current experiments focus on comparing:
 
-기존 실험에서 사용한 환경:
+- EfficientPhys
+- EfficientPhys + GRU (planned ablation)
+- EfficientPhys + BiGRU
+- Quantization-Aware Training (QAT) variants
+- Multi-ROI variants (planned ablation)
 
-- GPU: NVIDIA GeForce RTX 5090
-- Python: 3.13.13
-- PyTorch: 2.12.0+cu130
-- CUDA: 13.0
-- torchvision: 0.27.0+cu130
-- NumPy: 2.4.6
+The primary hypothesis is that temporal context can help stabilize weak
+or noisy frame-level physiological signals under low-light conditions.
 
-추가로 필요한 주요 패키지:
-
-```bash
-pip install opencv-python imageio-ffmpeg
-```
 
 ---
 
-## 2. 폴더 구조
+## 2. Current Pipeline
 
-코드 폴더:
-
-```text
-BUAA_share/
-├── train.py
-├── set_data_path.py
-├── datasets/
-│   └── buaa_dataset_fast.py
-└── buaa_experiment/
-    ├── labels.csv
-    ├── train_subjects.txt
-    └── val_subjects.txt
-```
-
-BUAA-MIHR 원본 데이터셋은 별도로 준비해야 합니다.
-
-예:
+The current experimental pipeline is:
 
 ```text
-BUAA-MIHR/
-├── Sub 01/
-├── Sub 02/
-├── Sub 03/
-└── ...
-```
-
----
-
-## 3. BUAA-MIHR 경로 설정
-
-먼저 코드 폴더로 이동합니다.
-
-```bash
-cd BUAA_share
-```
-
-자신의 BUAA-MIHR 데이터셋 위치를 지정합니다.
-
-```bash
-python set_data_path.py \
-  --data_root /path/to/BUAA-MIHR
-```
-
-예:
-
-```bash
-python set_data_path.py \
-  --data_root ~/research/BUAA-MIHR
-```
-
-이 작업은 `buaa_experiment/labels.csv`의 video_path를 현재 컴퓨터의 BUAA-MIHR 위치에 맞게 변경합니다.
-
----
-
-## 4. Baseline: EfficientPhys
-
-```bash
-python -u train.py \
-  --model efficientphys \
-  --window_size 150 \
-  --stride 75 \
-  --frame_depth 10 \
-  --batch_size 2 \
-  --epochs 10 \
-  --max_train_windows 120 \
-  --max_val_windows 80 \
-  --val_max_lux 4.0 \
-  --seed 42 \
-  --device cuda
-```
-
----
-
-## 5. EfficientPhys + BiGRU
-
-```bash
-python -u train.py \
-  --model efficientphys_bigru \
-  --window_size 150 \
-  --stride 75 \
-  --frame_depth 10 \
-  --batch_size 2 \
-  --epochs 10 \
-  --max_train_windows 120 \
-  --max_val_windows 80 \
-  --val_max_lux 4.0 \
-  --seed 42 \
-  --device cuda
-```
-
-Baseline과 BiGRU는 동일한 학습 조건을 사용합니다.
-
----
-
-## 6. 기본 Subject Split
-
-Validation subjects:
-
-```text
-07
-09
-```
-
-Training subjects:
-
-```text
-01
-02
-03
-05
-06
-08
-10
-11
-12
-13
-```
-
-파일 위치:
-
-```text
-buaa_experiment/train_subjects.txt
-buaa_experiment/val_subjects.txt
-```
-
----
-
-## 7. 주요 실험 설정
-
-```text
-window_size       = 150
-stride            = 75
-frame_depth       = 10
-batch_size        = 2
-epochs            = 10
-max_train_windows = 120
-max_val_windows   = 80
-val_max_lux       = 4.0
-seed              = 42
-```
-
-Validation은 4 lux 이하의 low-light 데이터를 대상으로 합니다.
-
-평가 loss:
-
-```text
-Loss = 1 - Pearson correlation
-```
-
-따라서 Pearson correlation이 높을수록 성능이 좋습니다.
-
----
-
-## 8. 출력
-
-학습 중 다음과 같은 결과가 출력됩니다.
-
-```text
-train loss=...
-VAL loss=... pearson=...
-val lux loss: 1=... 1.6=... 2.5=... 4=...
-```
-
-마지막에는:
-
-```text
-FINAL MODEL: efficientphys
-BEST VAL LOSS: ...
-BEST VAL PEARSON: ...
-```
-
-또는:
-
-```text
-FINAL MODEL: efficientphys_bigru
-BEST VAL LOSS: ...
-BEST VAL PEARSON: ...
-```
-
-가 출력됩니다.
-
-Checkpoint:
-
-```text
-checkpoint_buaa_efficientphys.pt
-checkpoint_buaa_efficientphys_bigru.pt
-```
-
----
-
-## 9. 모델 비교
-
-본 실험의 목적은 동일한 EfficientPhys backbone과 동일한 학습 조건에서
-BiGRU temporal modeling 추가에 따른 저조도 rPPG 성능 변화를 비교하는 것입니다.
-
-비교:
-
-```text
+BUAA-MIHR RGB Video
+        |
+        v
+Frame Extraction
+        |
+        v
+Resize / Normalize
+        |
+        v
+Temporal Window
+(150 frames)
+        |
+        v
 EfficientPhys
-      ↓
-EfficientPhys + BiGRU
+        |
+        v
+Temporal Modeling
+(BiGRU)
+        |
+        v
+Predicted rPPG / BVP Signal
+        |
+        v
+Heart Rate Estimation
 ```
 
-두 모델은 동일한 dataset split, window 설정, validation 조건에서 비교합니다.
+The current BUAA loader uses the full RGB frame.
 
-## Dataset
+Multi-ROI processing using forehead and cheek regions is planned as an
+additional ablation experiment.
+
+
+---
+
+## 3. Dataset
 
 ### BUAA-MIHR
 
-This project uses the BUAA-MIHR dataset for evaluating rPPG estimation
-under different illumination conditions, with a particular focus on
+This project uses the BUAA-MIHR dataset to evaluate rPPG estimation
+under different illumination conditions, with particular emphasis on
 low-light environments.
 
-The dataset was provided by the IR & MCT Lab, School of Automation Science
-and Electrical Engineering, Beihang University (BUAA), for non-commercial
-academic research.
+The dataset is provided by the IR & MCT Lab, School of Automation Science
+and Electrical Engineering, Beihang University (BUAA), for academic
+research according to the BUAA-MIHR Database Release Agreement.
 
-### Dataset Characteristics
 
-BUAA-MIHR contains facial videos recorded under multiple illumination
-conditions.
+### Illumination Conditions
 
-In our experiments, the following illumination levels are available:
+The illumination levels used in the current experiments include:
 
 - 1.0 lux
 - 1.6 lux
@@ -265,24 +91,23 @@ In our experiments, the following illumination levels are available:
 - 63.1 lux
 - 100 lux
 
-This allows the model to be evaluated across very dark to relatively
-well-illuminated environments.
+The primary low-light validation conditions are:
 
-Our primary low-light evaluation uses:
+```text
+1.0 / 1.6 / 2.5 / 4.0 lux
+```
 
-`1.0, 1.6, 2.5, and 4.0 lux`
 
 ### Video Configuration
 
-Example BUAA-MIHR videos used in this project have the following properties:
+Example videos used in the current pipeline have the following
+properties:
 
 - Resolution: 640 × 480
 - Frame rate: 30 FPS
 - Duration: approximately 60 seconds
 - Frames per video: approximately 1800
 
-The dataset also provides physiological reference signals that can be
-aligned with the RGB video frames.
 
 ### Ground-Truth Physiological Signal
 
@@ -292,17 +117,16 @@ The provided PPG reference data contains:
 - PPG waveform (`data`)
 - Detected pulse peaks (`peaks`)
 
-For example, the PPG signal is sampled at approximately:
+The PPG reference signal is sampled at approximately 60 Hz in the
+examined data.
 
-`60 Hz`
+The reference physiological signal is aligned with the RGB video for
+training and evaluation.
 
-The PPG signal is temporally aligned with the video frames and used as
-the ground-truth BVP target for model training and evaluation.
 
-### Dataset Structure
+### Example Dataset Structure
 
-A typical BUAA-MIHR directory has the following structure:
-
+```text
 BUAA-MIHR/
 ├── Sub 01/
 │   ├── Lux 1.0/
@@ -318,73 +142,592 @@ BUAA-MIHR/
 │   └── ...
 ├── Sub 02/
 └── ...
+```
 
-### Dataset Processing
-
-The original videos are converted into temporal windows before being
-provided to the rPPG model.
-
-Current configuration:
-
-- Window length: 150 frames
-- Stride: 75 frames
-- Input frame size: 112 × 112
-- Input channels: RGB
-- Pixel range: [0, 1]
-
-At 30 FPS, a 150-frame window corresponds to approximately 5 seconds.
-
-The processed model input has the shape:
-
-`(T, C, H, W) = (150, 3, 112, 112)`
-
-### Subject Split
-
-The current experiments use subject-independent train/validation splits.
-
-Subjects used in the experiments:
-
-`01, 02, 03, 05, 06, 07, 08, 09, 10, 11, 12, 13`
-
-Multiple validation subject splits are used to evaluate whether the
-temporal model generalizes to unseen subjects.
-
-Example splits:
-
-| Split | Validation Subjects |
-|------|---------------------|
-| A | 07, 09 |
-| B | 05, 11 |
-| C | 03, 12 |
-
-The remaining subjects are used for training.
-
-### Low-Light Evaluation
-
-Although the model can be trained using a broader range of illumination
-conditions, validation is restricted to low-light samples using:
-
-`--val_max_lux 4.0`
-
-Therefore, the primary validation conditions are:
-
-`1.0 / 1.6 / 2.5 / 4.0 lux`
-
-This setup is intended to specifically measure rPPG robustness under
-challenging low-light conditions.
 
 ### Dataset Availability
 
-BUAA-MIHR is **not included in this GitHub repository**.
+The BUAA-MIHR dataset itself is **NOT included in this repository**.
 
-The dataset must be obtained through the official BUAA-MIHR access
-procedure and used according to the terms of the BUAA-MIHR Database
-Release Agreement.
+Users must obtain access to BUAA-MIHR through the official dataset
+access procedure and comply with its applicable usage terms.
 
-This repository contains only the code required to process the dataset,
-train the models, and reproduce the experimental pipeline.
+This repository contains only the code and configuration required for
+the experimental pipeline.
 
-After obtaining the dataset, configure its local path using:
+Do NOT commit the original BUAA-MIHR videos or physiological data to
+this repository.
 
-python set_data_path.py --data_root /path/to/BUAA-MIHR
+
+---
+
+## 4. Dataset Processing
+
+The current dataset loader is:
+
+```text
+datasets/buaa_dataset_fast.py
+```
+
+The processing configuration is:
+
+- Temporal window: 150 frames
+- Stride: 75 frames
+- Input resolution: 112 × 112
+- Channels: RGB
+- Pixel normalization: [0, 1]
+
+At approximately 30 FPS:
+
+```text
+150 frames ≈ 5 seconds
+```
+
+The model input for one temporal window is:
+
+```text
+(T, C, H, W) = (150, 3, 112, 112)
+```
+
+The loader also calculates image-quality information including:
+
+- Brightness
+- Blur score
+- Dark-pixel ratio
+- Illumination level (lux)
+
+
+---
+
+## 5. Subject-Independent Evaluation
+
+Subjects currently used in the experiments:
+
+```text
+01, 02, 03, 05, 06, 07, 08, 09, 10, 11, 12, 13
+```
+
+Subject-independent splits are used so that validation subjects are not
+included in the corresponding training set.
+
+
+### Split A
+
+```text
+Validation:
+07, 09
+```
+
+
+### Split B
+
+```text
+Validation:
+05, 11
+
+Training:
+01, 02, 03, 06, 07, 08, 09, 10, 12, 13
+```
+
+
+### Split C
+
+```text
+Validation:
+03, 12
+
+Training:
+01, 02, 05, 06, 07, 08, 09, 10, 11, 13
+```
+
+
+---
+
+## 6. Low-Light Evaluation
+
+The primary validation experiment restricts the illumination level using:
+
+```bash
+--val_max_lux 4.0
+```
+
+Therefore, the primary validation conditions are:
+
+```text
+1.0 lux
+1.6 lux
+2.5 lux
+4.0 lux
+```
+
+This setting is designed to specifically evaluate rPPG robustness under
+challenging low-light conditions.
+
+
+---
+
+## 7. Models
+
+### EfficientPhys
+
+EfficientPhys is used as the baseline rPPG model.
+
+
+### EfficientPhys + BiGRU
+
+A bidirectional GRU is added to investigate whether additional temporal
+context improves rPPG estimation when frame-level physiological signals
+become weak or noisy under low illumination.
+
+The working hypothesis is:
+
+```text
+Low illumination
+      |
+      v
+Weak / noisy visual physiological signal
+      |
+      v
+Temporal context modeling
+      |
+      v
+More stable rPPG estimation
+```
+
+
+### QAT
+
+Quantization-Aware Training (QAT) variants have also been evaluated.
+
+Current results suggest that QAT provides relatively small or
+inconsistent gains compared with the improvement obtained from temporal
+modeling.
+
+Therefore, QAT is currently treated as a secondary experiment rather
+than the primary contribution.
+
+
+---
+
+## 8. Current Experimental Configuration
+
+Typical experimental settings:
+
+```text
+Window size       : 150
+Stride            : 75
+Frame depth       : 10
+Batch size        : 2
+Epochs            : 10
+Max train windows : 120
+Max val windows   : 80
+Validation lux    : <= 4.0
+Device            : CUDA
+```
+
+Example:
+
+```bash
+python train.py \
+    --model efficientphys_bigru \
+    --window_size 150 \
+    --stride 75 \
+    --frame_depth 10 \
+    --batch_size 2 \
+    --epochs 10 \
+    --max_train_windows 120 \
+    --max_val_windows 80 \
+    --val_max_lux 4.0 \
+    --device cuda
+```
+
+
+---
+
+## 9. Evaluation Metric
+
+The current training/evaluation loss is based on negative Pearson
+correlation:
+
+```text
+Loss = 1 - Pearson correlation
+```
+
+Therefore:
+
+```text
+Pearson correlation = 1 - Loss
+```
+
+A higher Pearson correlation indicates stronger agreement between the
+predicted rPPG waveform and the ground-truth physiological signal.
+
+
+---
+
+## 10. Experimental Results
+
+### Subject Split Results
+
+| Split | Validation Subjects | EfficientPhys | EfficientPhys + BiGRU | Improvement |
+|------|---------------------|--------------:|----------------------:|------------:|
+| A | 07, 09 | 0.1134 | 0.1304 | +0.0170 |
+| B | 05, 11 | 0.0697 | 0.1376 | +0.0679 |
+| C | 03, 12 | 0.0872 | 0.1485 | +0.0613 |
+
+
+### Average Performance
+
+```text
+EfficientPhys mean        : 0.0901
+EfficientPhys + BiGRU mean: 0.1388
+
+Absolute improvement      : +0.0487
+```
+
+EfficientPhys + BiGRU outperformed the EfficientPhys baseline in all
+three evaluated subject splits.
+
+
+### Seed Experiments
+
+Multiple random seeds were also evaluated on Split A.
+
+Across the six tested seeds, EfficientPhys + BiGRU consistently
+outperformed the EfficientPhys baseline.
+
+Examples include:
+
+| Seed | EfficientPhys | EfficientPhys + BiGRU |
+|-----:|--------------:|----------------------:|
+| 45 | 0.1663 | 0.1804 |
+| 46 | 0.0923 | 0.0972 |
+| 47 | 0.1692 | 0.1747 |
+
+These results currently support further investigation of temporal
+context modeling for low-light rPPG.
+
+More extensive statistical evaluation is still required before making
+strong conclusions.
+
+
+---
+
+## 11. Planned Ablation Experiments
+
+The following experiments are planned to determine whether the observed
+improvement is caused by bidirectional temporal context rather than only
+additional model capacity.
+
+
+### Temporal Model Ablation
+
+```text
+EfficientPhys
+      vs.
+EfficientPhys + GRU
+      vs.
+EfficientPhys + BiGRU
+```
+
+A result following:
+
+```text
+EfficientPhys < GRU < BiGRU
+```
+
+would provide stronger evidence for the benefit of bidirectional
+temporal context.
+
+
+### Temporal Window Ablation
+
+Planned temporal window comparison:
+
+```text
+T = 30
+T = 75
+T = 150
+T = 300
+```
+
+
+### ROI Ablation
+
+Planned comparison:
+
+```text
+1. Full Face EfficientPhys
+
+2. Full Face EfficientPhys + BiGRU
+
+3. Multi-ROI EfficientPhys
+
+4. Multi-ROI EfficientPhys + BiGRU
+```
+
+The planned Multi-ROI configuration uses:
+
+- Forehead
+- Left cheek
+- Right cheek
+
+ROI processing is treated as an ablation and is not assumed to improve
+performance in advance.
+
+
+### Additional Evaluation
+
+Future evaluation should also include:
+
+- Parameter-matched model comparisons
+- Multiple random seeds
+- Multiple subject splits
+- Lux-specific evaluation
+- Best-checkpoint evaluation
+- Statistical significance testing
+
+
+---
+
+## 12. Environment
+
+The current experimental environment includes:
+
+```text
+Python      : 3.13.13
+PyTorch     : 2.12.0+cu130
+Torchvision : 0.27.0+cu130
+CUDA        : 13.0
+GPU         : NVIDIA RTX 5090
+NumPy       : 2.4.6
+```
+
+Install dependencies using:
+
+```bash
+pip install -r requirements.txt
+```
+
+
+---
+
+## 13. Dataset Path Setup
+
+After obtaining BUAA-MIHR, configure the local dataset path.
+
+Example:
+
+```bash
+python set_data_path.py \
+    --data_root /path/to/BUAA-MIHR
+```
+
+Do not hard-code user-specific absolute paths into files committed to
+GitHub.
+
+
+---
+
+# Future Application / Real-Time Inference Design
+
+## 14. Application Goal
+
+The trained low-light rPPG model can potentially be extended into a
+camera-based heart-rate measurement application.
+
+The user-facing input would simply be an RGB camera stream.
+
+Conceptual pipeline:
+
+```text
+Camera
+  |
+  v
+RGB Video
+  |
+  v
+Face Detection / Crop
+  |
+  v
+Resize to 112 × 112
+  |
+  v
+Temporal Buffer
+  |
+  v
+EfficientPhys + BiGRU
+  |
+  v
+Predicted rPPG / BVP
+  |
+  v
+Heart Rate Estimation
+  |
+  v
+BPM
+```
+
+
+---
+
+## 15. Application Input
+
+A potential real-time implementation would use:
+
+```text
+Input source     : Smartphone / webcam RGB camera
+Frame rate       : approximately 30 FPS
+Temporal window  : 150 frames
+Window duration  : approximately 5 seconds
+Resolution       : 112 × 112
+Channels         : RGB
+Normalization    : [0, 1]
+```
+
+Model input:
+
+```text
+(T, C, H, W) = (150, 3, 112, 112)
+```
+
+For real-world deployment, face detection and cropping should be applied
+before the frames are passed to the model.
+
+
+---
+
+## 16. Application Output
+
+The primary model output is a predicted rPPG/BVP waveform.
+
+The predicted physiological signal can then be processed to estimate
+heart rate.
+
+Potential application outputs include:
+
+```text
+Predicted rPPG waveform
+Estimated heart rate (BPM)
+Illumination condition
+Measurement quality
+```
+
+
+Example UI information:
+
+```text
+Heart Rate
+72 BPM
+
+Illumination
+Low
+
+Measurement Quality
+Moderate
+```
+
+
+---
+
+## 17. Low-Light Quality Monitoring
+
+Because this project focuses on low-light rPPG, image-quality
+information can also be calculated from incoming frames.
+
+Potential quality indicators include:
+
+- Mean brightness
+- Dark-pixel ratio
+- Blur score
+- Estimated illumination condition
+
+Conceptually:
+
+```text
+                 +--> EfficientPhys + BiGRU --> rPPG --> BPM
+Camera RGB ------|
+                 +--> Image Quality Analysis
+                       |
+                       +--> Brightness
+                       +--> Dark ratio
+                       +--> Blur
+```
+
+
+---
+
+## 18. Real-Time Sliding Window
+
+Instead of collecting a completely new 5-second video for every
+measurement, a real-time application can use a sliding temporal window.
+
+For example:
+
+```text
+0-5 s  -> inference
+1-6 s  -> inference
+2-7 s  -> inference
+3-8 s  -> inference
+...
+```
+
+After the initial buffer is filled, the estimated heart rate can
+therefore be continuously updated.
+
+
+---
+
+## 19. Application Development Status
+
+The real-time application described above is currently a **planned
+extension** of the research pipeline.
+
+The current repository focuses on:
+
+```text
+BUAA-MIHR
+    |
+    v
+Low-Light rPPG Training
+    |
+    v
+EfficientPhys / Temporal Model Comparison
+    |
+    v
+Evaluation
+```
+
+Future work will extend the trained model toward:
+
+```text
+Real-Time Camera
+      |
+      v
+Low-Light rPPG Inference
+      |
+      v
+Continuous Heart Rate Estimation
+```
+
+
+---
+
+## 20. Repository Structure
+
+```text
+BUAA_lowlight_rPPG/
+├── README.md
+├── requirements.txt
+├── train.py
+├── set_data_path.py
+├── datasets/
+│   └── buaa_dataset_fast.py
+└── buaa_experiment/
+    ├── train_subjects.txt
+    └── val_subjects.txt
+```
+
+The original BUAA-MIHR dataset is intentionally excluded from the
+repository.
 
