@@ -15,5 +15,16 @@ output/
 users.db
 *.db
 
-# Generated authentication data
-output/
+# BUAA low-light rPPG
+BUAA_lowlight_rPPG/__pycache__/
+BUAA_lowlight_rPPG/datasets/__pycache__/
+BUAA_lowlight_rPPG/*.pt
+BUAA_lowlight_rPPG/*.pth
+BUAA_lowlight_rPPG/*.ckpt
+BUAA_lowlight_rPPG/cache/
+BUAA_lowlight_rPPG/tmp/
+BUAA_lowlight_rPPG/BUAA-MIHR/
+
+# Keep BUAA dataset loader
+!BUAA_lowlight_rPPG/datasets/
+!BUAA_lowlight_rPPG/datasets/buaa_dataset_fast.py
