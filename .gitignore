@@ -10,3 +10,10 @@ output/
 *.onnx
 *.pth
 *.pt
+
+# Runtime / database
+users.db
+*.db
+
+# Generated authentication data
+output/
