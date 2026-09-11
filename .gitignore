@@ -14,6 +14,7 @@ output/
 # Runtime / database
 users.db
 *.db
+backend_server.log
 
 # BUAA low-light rPPG
 BUAA_lowlight_rPPG/__pycache__/
@@ -28,3 +29,25 @@ BUAA_lowlight_rPPG/BUAA-MIHR/
 # Keep BUAA dataset loader
 !BUAA_lowlight_rPPG/datasets/
 !BUAA_lowlight_rPPG/datasets/buaa_dataset_fast.py
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/*.iml
+android/gradle/wrapper/gradle-wrapper.jar
+
+# Release signing (never commit — needed to sign future app updates)
+android/keystore/
+android/keystore.properties
+android/app/build/outputs/apk/release/
+android/screenshots/
+android/emulator.log
+
+# iOS (XcodeGen project.yml is the source of truth; regenerate with `xcodegen generate`)
+ios/FaceAuth.xcodeproj/
+ios/FaceAuth/Info.plist
+ios/.build/
+ios/DerivedData/

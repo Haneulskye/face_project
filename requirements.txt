@@ -9,3 +9,7 @@ pandas
 tqdm
 Pillow
 kaggle
+onnxruntime
+fastapi
+uvicorn[standard]
+python-multipart

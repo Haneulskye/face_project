@@ -1,5 +1,6 @@
 import os
 import pickle
+import threading
 
 import cv2
 import numpy as np
@@ -35,6 +36,8 @@ FACE_THRESHOLD = 0.45
 
 with open(DATABASE_PATH, "rb") as f:
     DATABASE = pickle.load(f)
+
+DATABASE_LOCK = threading.Lock()
 
 
 # ============================================================
@@ -253,6 +256,48 @@ def authenticate_face(image, threshold=FACE_THRESHOLD):
         "name": best_name,
         "score": round(float(best_score), 4)
     }
+
+
+# ============================================================
+# FACE REGISTRATION
+# ============================================================
+
+def register_face(name, image):
+    """
+    Compute an ArcFace embedding for `image` and add it to the
+    face database under `name`, persisting the change to disk.
+
+    Parameters
+    ----------
+    name : str
+        Unique identifier for the new entry.
+
+    image : numpy.ndarray
+        BGR image from camera/upload.
+
+    Returns
+    -------
+    numpy.ndarray or None
+        The stored embedding, or None if no face was detected.
+    """
+
+    face_crop = crop_face(image)
+
+    if face_crop is None:
+        return None
+
+    embedding = extract_embedding(face_crop)
+
+    if embedding is None:
+        return None
+
+    with DATABASE_LOCK:
+        DATABASE[name] = embedding
+
+        with open(DATABASE_PATH, "wb") as f:
+            pickle.dump(DATABASE, f)
+
+    return embedding
 
 
 # ============================================================
