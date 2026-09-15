@@ -7,12 +7,14 @@ Run with:
 """
 
 import io
+from pathlib import Path
 from typing import Optional
 
 import cv2
 import numpy as np
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
 from backend import user_profile_store
@@ -151,3 +153,16 @@ def measure_heart_rate(name: str):
         raise HTTPException(status_code=404, detail="user_not_found")
 
     return {"available": False, "bpm": None, "status": None}
+
+
+# ============================================================
+# WEB CLIENT
+#
+# Serves web/ as a static site at the server root. Must be mounted last —
+# a "/" mount registered earlier would shadow every API route above it.
+# ============================================================
+
+WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+
+if WEB_DIR.exists():
+    app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")

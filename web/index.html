@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>얼굴·심박 인증</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Top bar (shared across views) -->
+    <div class="topbar">
+      <button id="backBtn" class="back-btn" style="display:none" aria-label="뒤로">‹</button>
+      <button id="menuBtn" class="menu-btn" aria-label="메뉴">☰</button>
+      <h1 id="pageTitle">메인화면</h1>
+      <div class="dropdown" id="dropdownMenu">
+        <button id="menuHome">홈</button>
+        <button id="menuAbout">정보</button>
+      </div>
+    </div>
+
+    <!-- MAIN -->
+    <section class="view active" id="view-main">
+      <div class="hero-icon">🙂</div>
+      <h2 class="headline">얼굴 인식으로<br />간편하게 인증하세요</h2>
+      <p class="subtitle">얼굴 인식 후 심박수까지 함께 확인할 수 있어요</p>
+      <button class="btn btn-primary" id="startScanBtn">🙂 &nbsp;얼굴 인식 시작하기</button>
+    </section>
+
+    <!-- SCAN -->
+    <section class="view" id="view-scan">
+      <div class="camera-wrap">
+        <video id="cameraVideo" autoplay playsinline muted></video>
+        <div class="camera-message" id="cameraMessage" style="display:none"></div>
+        <div class="camera-overlay" id="scanOverlay" style="display:none">
+          <div class="spinner"></div>
+          <span>인증 중...</span>
+        </div>
+      </div>
+      <p class="error-text" id="scanError" style="display:none"></p>
+      <div class="capture-btn-wrap">
+        <button class="capture-btn" id="captureBtn" disabled>촬영</button>
+      </div>
+    </section>
+
+    <!-- REGISTER -->
+    <section class="view" id="view-register">
+      <p class="form-title">처음 뵙는 얼굴이에요</p>
+      <p class="form-subtitle">정보를 입력하면 다음부터는 얼굴 인식만으로 확인할 수 있어요.</p>
+
+      <div class="field">
+        <label for="regName">이름 (사용자 ID)</label>
+        <input type="text" id="regName" placeholder="이름" />
+      </div>
+
+      <div class="field">
+        <label for="regAge">나이</label>
+        <input type="number" id="regAge" placeholder="나이" min="0" />
+        <p class="field-hint" id="ageHint" style="display:none">만 14세 미만은 가입할 수 없습니다.</p>
+      </div>
+
+      <div class="field">
+        <label for="regNickname">불리고 싶은 닉네임</label>
+        <input type="text" id="regNickname" placeholder="닉네임" />
+      </div>
+
+      <div class="field">
+        <label>성별</label>
+        <div class="segmented">
+          <button type="button" id="genderM" class="selected">남성</button>
+          <button type="button" id="genderF">여성</button>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="regHeight">키(cm)</label>
+          <input type="number" id="regHeight" placeholder="키" />
+        </div>
+        <div class="field">
+          <label for="regWeight">몸무게(kg, 선택)</label>
+          <input type="number" id="regWeight" placeholder="몸무게" />
+        </div>
+      </div>
+
+      <label class="checkbox-row">
+        <input type="checkbox" id="regConsent" />
+        <span>개인정보 수집 및 이용에 동의합니다.</span>
+      </label>
+
+      <p class="error-text" id="registerPhotoWarning" style="display:none">
+        촬영된 얼굴 사진이 없습니다. 이전 화면에서 다시 촬영해주세요.
+      </p>
+      <p class="error-text" id="registerError" style="display:none"></p>
+
+      <button class="btn btn-primary" id="submitRegisterBtn" disabled>저장하기</button>
+    </section>
+
+    <!-- REGISTER SUCCESS -->
+    <section class="view" id="view-registerSuccess">
+      <div class="success-icon">✅</div>
+      <p class="form-title" style="text-align:center">저장 완료!</p>
+      <p class="subtitle" id="successMessage" style="text-align:center"></p>
+      <button class="btn btn-primary" id="successConfirmBtn">확인</button>
+    </section>
+
+    <!-- PROFILE -->
+    <section class="view" id="view-profile">
+      <div class="center-loading" id="profileLoading">
+        <div class="spinner"></div>
+      </div>
+      <div id="profileContent" style="display:none">
+        <div class="profile-header">
+          <div class="avatar">🙂</div>
+          <div>
+            <p class="profile-name" id="profileNickname"></p>
+            <p class="profile-sub" id="profileSub"></p>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat">
+            <div class="stat-value" id="profileHeight"></div>
+            <div class="stat-label">키</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="profileWeight"></div>
+            <div class="stat-label">몸무게</div>
+          </div>
+        </div>
+
+        <div class="heart-card" id="heartCard">
+          <p class="heart-card-title">❤️ 오늘의 심박수</p>
+          <p class="heart-card-value" id="heartValue">측정 준비 중입니다</p>
+          <p class="heart-card-solution" id="heartSolution">심박수 측정 기능은 준비 중입니다.</p>
+          <button class="btn btn-primary" id="measureBtn">심박수 측정</button>
+        </div>
+
+        <button class="btn btn-outline" id="viewHistoryBtn">전체기록</button>
+      </div>
+      <p class="error-text" id="profileError" style="display:none"></p>
+    </section>
+
+    <!-- HISTORY -->
+    <section class="view" id="view-history">
+      <div class="center-loading" id="historyLoading">
+        <div class="spinner"></div>
+      </div>
+      <div id="historyEmpty" class="empty-state" style="display:none">
+        <h2>아직 심박수 기록이 없습니다.</h2>
+        <p>심박수 측정 기능이 연결되면 이곳에서 기록을 확인할 수 있어요.</p>
+      </div>
+      <div id="historyList" style="display:none"></div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

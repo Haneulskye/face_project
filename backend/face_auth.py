@@ -32,10 +32,19 @@ FACE_THRESHOLD = 0.45
 
 # ============================================================
 # LOAD DATABASE
+#
+# The full CASIA-WebFace-derived database.pkl (98k+ research-dataset
+# embeddings) is intentionally not shipped to production deploys — it's
+# large and its redistribution is best avoided. A fresh deploy starts
+# with an empty database and fills up as real users register.
 # ============================================================
 
-with open(DATABASE_PATH, "rb") as f:
-    DATABASE = pickle.load(f)
+if os.path.exists(DATABASE_PATH):
+    with open(DATABASE_PATH, "rb") as f:
+        DATABASE = pickle.load(f)
+else:
+    os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
+    DATABASE = {}
 
 DATABASE_LOCK = threading.Lock()
 
