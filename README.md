@@ -219,11 +219,13 @@ uvicorn backend.api:app --host 0.0.0.0 --port 8000 --reload
 | GET | `/users/{name}/heart-rate/latest`, `/history` | 워치에서 동기화되어 저장된 최신/전체 심박수 기록 조회 |
 | POST | `/users/{name}/heart-rate/measure` | `bpm`(옵션) + `source`(옵션, 예: `galaxy_watch`/`apple_watch`)를 보내면 저장 후 반환. `bpm`을 안 보내면 기존처럼 `{"available": false}` (워치 미연동 기기용 안전한 폴백) |
 
-등록 시 **만 14세 미만은 `age_restricted`(400)로 거부**된다 (클라이언트에서도 동일하게 막지만 서버에서 한 번 더 검증). 등록된 얼굴 embedding은 `output/database/database.pkl`에 추가되고, 프로필(나이/닉네임/성별/키/몸무게)은 `users.db`의 `app_users` 테이블에 저장된다. 홍채 embedding은 기존 `iris_users` 테이블에 함께 저장되지만, 매칭 시에는 `app_users`에 등록된 이름으로만 필터링해서 CASIA 데이터셋의 249명과 섞이지 않도록 했다.
+등록 시 **만 14세 미만은 `age_restricted`(400)로 거부**된다 (클라이언트에서도 동일하게 막지만 서버에서 한 번 더 검증). 얼굴 사진이 너무 흐리면 `low_quality_face`(422)로도 거부된다 — 흐릿한 사진이 그대로 등록되면 사람이 늘어날수록 다른 사람과 헷갈릴 위험이 커지기 때문에, 인증 시점이 아니라 등록 시점에서만 막는다 (Laplacian variance 기반, `backend/face_auth.py`). 등록된 얼굴 embedding은 `output/database/database.pkl`에 추가되고, 프로필(나이/닉네임/성별/키/몸무게)은 `users.db`의 `app_users` 테이블에 저장된다. 홍채 embedding은 기존 `iris_users` 테이블에 함께 저장되지만, 매칭 시에는 `app_users`에 등록된 이름으로만 필터링해서 CASIA 데이터셋의 249명과 섞이지 않도록 했다.
 
-### 홍채 인식 (프로토타입 / 데모 단계)
+### 홍채 인식
 
-`backend/iris_auth.py`가 얼굴 사진에서 MediaPipe FaceMesh로 눈 주변을 크롭해 홍채 embedding을 함께 계산한다. 다만 `src/iris_embedding.py`의 모델은 **홍채 전용으로 학습된 모델이 아니라 ImageNet 사전학습 ResNet18에서 분류 헤드만 제거한 범용 특징 추출기**다 — 즉 실제 홍채 무늬 기반 생체인증이 아니라 눈 주변 이미지의 대략적인 유사도 비교에 가깝다. 폰 카메라(가시광선)로는 적외선 홍채 카메라 수준의 무늬 디테일을 애초에 촬영할 수 없다는 하드웨어 한계도 있다. 그래서 얼굴 인식이 최종 인증을 판정하고, 홍채 결과는 화면에 함께 보여주기만 하는 보조 신호로 설계했다. **정확도 개선은 2026년 10월 말 예정** — 이때는 홍채 전용으로 파인튜닝한 모델로 교체하는 것이 핵심이며, 임계값 조정만으로는 근본적인 해결이 안 된다.
+`backend/iris_auth.py`가 얼굴 사진에서 MediaPipe FaceMesh로 눈 주변을 크롭해 홍채 embedding을 함께 계산한다. `src/iris_embedding.py`의 모델은 CASIA-Iris-Interval(249명, 395개 subject_eye 클래스)로 파인튜닝된 ResNet18이다(`src/train_iris_model.py`, 가중치는 Git LFS로 관리되는 `models/iris_resnet18_finetuned.pt`). 파인튜닝 전에는 ImageNet 사전학습 특징만 썼는데, 실제 등록된 사용자로 확인해보니 서로 다른 사람인데도 유사도가 0.75~0.87까지 나와 사실상 아무나 매칭되는 수준이었다 — 파인튜닝 후에는 CASIA 검증 세트 기준 genuine 평균 0.92 vs impostor 평균 0.47(최대 0.66)로 분리가 뚜렷해졌다 (`IRIS_THRESHOLD = 0.68`).
+
+다만 학습 데이터가 적외선 카메라로 찍은 CASIA 이미지라 폰 카메라(가시광선) 사진과는 도메인 차이가 있어 — 실기기 데이터로 재검증되기 전까지는 여전히 보조 신호로 취급한다. 얼굴 인식이 최종 인증을 판정하고, `iris.matched`는 **홍채 결과의 best-match가 얼굴 인식 결과와 같은 사람일 때만** true가 된다 (단순히 "누군가와 일치"가 아님). **모델을 교체하면 기존에 등록된 사용자의 홍채 embedding은 호환되지 않는다** — 새 모델로 다시 매칭되게 하려면 `DELETE /users/{name}` 후 재등록해야 한다.
 
 ### 워치 심박수 연동
 
