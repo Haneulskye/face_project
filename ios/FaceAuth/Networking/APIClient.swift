@@ -123,6 +123,8 @@ final class APIClient {
         switch detail {
         case "face_not_detected":
             return "얼굴을 인식하지 못했습니다. 정면을 바라보고 다시 시도해주세요."
+        case "low_quality_face":
+            return "사진이 너무 흐릿합니다. 밝은 곳에서 정면으로 다시 촬영해주세요."
         case "consent_required":
             return "개인정보 수집에 동의해야 등록할 수 있습니다."
         case "age_restricted":

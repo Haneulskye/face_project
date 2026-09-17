@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
 from backend import heart_rate_store, user_profile_store
-from backend.face_auth import authenticate_face, delete_face, register_face
+from backend.face_auth import LowQualityFaceError, authenticate_face, delete_face, register_face
 from backend.iris_auth import authenticate_iris_from_photo, delete_iris, register_iris
 
 app = FastAPI(title="Face Auth API")
@@ -84,7 +84,13 @@ def auth_face(image: UploadFile = File(...)):
         "profile": profile,
         "reason": result.get("reason"),
         "iris": {
-            "matched": bool(iris_result.get("authenticated")),
+            # "matched" means the iris result's own best match is the SAME
+            # person the face result identified — not merely that iris
+            # matched *someone* in the gallery (a different registered
+            # person's iris scoring highest would otherwise still show as
+            # a misleading "일치").
+            "matched": bool(iris_result.get("authenticated"))
+            and iris_result.get("name") == result.get("name"),
             "score": iris_result.get("score", 0.0),
             "reason": iris_result.get("reason"),
         },
@@ -113,7 +119,10 @@ def register_user(
 
     bgr_image = _read_image(image)
 
-    embedding = register_face(name, bgr_image)
+    try:
+        embedding = register_face(name, bgr_image)
+    except LowQualityFaceError:
+        raise HTTPException(status_code=422, detail="low_quality_face")
 
     if embedding is None:
         raise HTTPException(status_code=422, detail="face_not_detected")

@@ -15,15 +15,25 @@ from src.iris_embedding import extract_iris_embedding
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = PROJECT_ROOT / "users.db"
 
-IRIS_THRESHOLD = 0.75
+IRIS_THRESHOLD = 0.68
 
-# NOTE (프로토타입 / 데모 단계):
-# extract_iris_embedding()은 홍채 전용으로 학습된 모델이 아니라 ImageNet
-# 사전학습 ResNet18에서 분류 헤드만 제거한 범용 특징 추출기다. 즉 지금의
-# 홍채 "인식"은 실제 홍채 무늬 기반 생체인증이 아니라 눈 주변 이미지의
-# 대략적인 유사도 비교에 가깝다. 학술제 데모(흐름 시연)용으로는 충분하지만
-# 정확도가 필요하면 홍채 전용 데이터로 파인튜닝한 모델로 교체해야 한다.
-# (10월 말 정확도 개선 작업 시 이 파일과 src/iris_embedding.py를 함께 본다.)
+# NOTE (2026-09-17 갱신):
+# extract_iris_embedding()은 이제 CASIA-Iris-Interval(249명, 395개
+# subject_eye 클래스)로 파인튜닝된 ResNet18을 쓴다 (src/train_iris_model.py,
+# 가중치는 models/iris_resnet18_finetuned.pt). 파인튜닝 전에는 ImageNet
+# 사전학습 특징만 썼는데, 실제 등록된 사용자들로 측정해보니 서로 다른
+# 사람인데도 코사인 유사도가 0.75~0.87까지 나와 threshold(0.75)로 걸러지지
+# 않는 상태였다 — 사실상 아무나 매칭되는 수준. 파인튜닝 후 CASIA 검증
+# 세트 기준 genuine 평균 0.92(최소 0.61) vs impostor 평균 0.47(최대 0.66)로
+# 분리가 뚜렷해졌고, threshold도 그에 맞춰 0.68로 낮췄다.
+#
+# 다만 학습 데이터가 적외선 카메라로 찍은 CASIA 이미지라, 폰 카메라(가시광선)
+# 사진과는 도메인 차이가 있다 — 실제 라이브 등록자 데이터로 재검증 전까지는
+# 여전히 보조 신호로만 취급한다 (얼굴 인식이 최종 인증을 판정, iris는 화면에
+# 함께 보여주기만 함. backend/api.py 참고).
+#
+# 기존에 등록된 사용자(모델 교체 전)의 홍채 embedding은 새 모델과 호환되지
+# 않는다 — 다시 매칭되게 하려면 DELETE 후 재등록해야 한다.
 
 
 # ============================================================

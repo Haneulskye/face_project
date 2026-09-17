@@ -100,6 +100,7 @@ class AuthRepository(
 
         return when (detail) {
             "face_not_detected" -> "얼굴을 인식하지 못했습니다. 정면을 바라보고 다시 시도해주세요."
+            "low_quality_face" -> "사진이 너무 흐릿합니다. 밝은 곳에서 정면으로 다시 촬영해주세요."
             "consent_required" -> "개인정보 수집에 동의해야 등록할 수 있습니다."
             "age_restricted" -> "만 14세 미만은 가입할 수 없습니다."
             "name_already_registered" -> "이미 등록된 사용자 ID입니다."

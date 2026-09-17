@@ -29,6 +29,13 @@ DATABASE_PATH = os.path.join(
 
 FACE_THRESHOLD = 0.65
 
+# Laplacian-variance focus measure below this is rejected at registration
+# only (not at auth) — a blurry stored template is a bigger long-term risk
+# than a blurry one-off auth attempt, since it degrades the gallery for
+# everyone as more people register. Calibrated against a 112x112 crop:
+# a normal sharp photo scores ~600+, a clearly blurry one ~30 or under.
+MIN_REGISTRATION_SHARPNESS = 40.0
+
 
 # ============================================================
 # LOAD DATABASE
@@ -271,6 +278,15 @@ def authenticate_face(image, threshold=FACE_THRESHOLD):
 # FACE REGISTRATION
 # ============================================================
 
+class LowQualityFaceError(Exception):
+    """Raised by register_face() when the crop is too blurry to register."""
+
+
+def _sharpness(face_crop):
+    gray = cv2.cvtColor(face_crop, cv2.COLOR_BGR2GRAY)
+    return cv2.Laplacian(gray, cv2.CV_64F).var()
+
+
 def register_face(name, image):
     """
     Compute an ArcFace embedding for `image` and add it to the
@@ -288,12 +304,22 @@ def register_face(name, image):
     -------
     numpy.ndarray or None
         The stored embedding, or None if no face was detected.
+
+    Raises
+    ------
+    LowQualityFaceError
+        If a face was found but the crop is too blurry to register — a
+        blurry stored template hurts the whole gallery's accuracy as more
+        people register, so this is enforced here (not at auth time).
     """
 
     face_crop = crop_face(image)
 
     if face_crop is None:
         return None
+
+    if _sharpness(face_crop) < MIN_REGISTRATION_SHARPNESS:
+        raise LowQualityFaceError("face crop is too blurry to register")
 
     embedding = extract_embedding(face_crop)
 

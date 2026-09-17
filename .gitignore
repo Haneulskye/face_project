@@ -11,8 +11,9 @@ output/
 *.pth
 *.pt
 
-# Keep the ArcFace model used by the deployed web/backend (tracked via Git LFS)
+# Keep the models used by the deployed web/backend (tracked via Git LFS)
 !models/w600k_r50.onnx
+!models/iris_resnet18_finetuned.pt
 
 # Runtime / database
 users.db
