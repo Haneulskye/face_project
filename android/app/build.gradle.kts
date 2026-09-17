@@ -51,7 +51,7 @@ android {
             // Real devices can't resolve 10.0.2.2 (that's emulator-only) — point the
             // release build at the backend host's LAN IP instead. Rebuild if the
             // machine running `uvicorn backend.api:app` changes networks/IP.
-            buildConfigField("String", "API_BASE_URL", "\"http://192.168.45.205:8000/\"")
+            buildConfigField("String", "API_BASE_URL", "\"http://10.10.8.30:8000/\"")
         }
     }
 

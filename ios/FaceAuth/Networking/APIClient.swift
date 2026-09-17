@@ -11,7 +11,7 @@ enum APIResult<T> {
 /// this LAN IP directly. A real iPhone needs to be on the same Wi-Fi as the
 /// Mac running `uvicorn backend.api:app`. Rebuild if that IP changes.
 enum APIConfig {
-    static let baseURL = URL(string: "http://192.168.45.205:8000")!
+    static let baseURL = URL(string: "http://10.10.8.30:8000")!
 }
 
 final class APIClient {
