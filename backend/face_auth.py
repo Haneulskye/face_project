@@ -27,7 +27,7 @@ DATABASE_PATH = os.path.join(
     "database.pkl"
 )
 
-FACE_THRESHOLD = 0.45
+FACE_THRESHOLD = 0.65
 
 
 # ============================================================
