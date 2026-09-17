@@ -1,5 +1,7 @@
 package com.faceproject.android.ui.screens.profile
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.health.connect.client.PermissionController
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,11 +29,17 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.faceproject.android.health.HealthConnectManager
+import com.faceproject.android.health.HeartRateReadResult
 import com.faceproject.android.model.solutionMessageFor
+import kotlinx.coroutines.launch
 
 @Composable
 fun ProfileScreen(
@@ -42,6 +50,40 @@ fun ProfileScreen(
 ) {
     LaunchedEffect(name) {
         viewModel.load(name)
+    }
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val healthConnectManager = remember { HealthConnectManager(context) }
+
+    val healthPermissionLauncher = rememberLauncherForActivityResult(
+        contract = PermissionController.createRequestPermissionResultContract()
+    ) { granted ->
+        scope.launch {
+            if (granted.containsAll(healthConnectManager.permissions)) {
+                when (val result = healthConnectManager.readLatestHeartRate()) {
+                    is HeartRateReadResult.Success ->
+                        viewModel.measure(name, result.bpm.toDouble(), "galaxy_watch")
+                    else -> viewModel.measure(name)
+                }
+            } else {
+                viewModel.measure(name)
+            }
+        }
+    }
+
+    fun measureFromWatch() {
+        scope.launch {
+            when (val result = healthConnectManager.readLatestHeartRate()) {
+                is HeartRateReadResult.Success ->
+                    viewModel.measure(name, result.bpm.toDouble(), "galaxy_watch")
+                is HeartRateReadResult.PermissionRequired ->
+                    healthPermissionLauncher.launch(healthConnectManager.permissions)
+                // Health Connect가 없거나 워치에서 동기화된 값이 없는 기기(예: 에뮬레이터) —
+                // 기존 "측정 준비 중" 응답으로 자연스럽게 대체된다.
+                else -> viewModel.measure(name)
+            }
+        }
     }
 
     Box(
@@ -118,7 +160,7 @@ fun ProfileScreen(
 
                     HeartRateCard(
                         heartRate = viewModel.heartRate,
-                        onMeasureClick = { viewModel.measure(name) }
+                        onMeasureClick = { measureFromWatch() }
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -133,6 +175,12 @@ fun ProfileScreen(
             }
         }
     }
+}
+
+private fun sourceLabel(source: String): String = when (source) {
+    "galaxy_watch" -> "갤럭시 워치로 측정됨"
+    "apple_watch" -> "애플 워치로 측정됨"
+    else -> "워치로 측정됨"
 }
 
 @Composable
@@ -167,6 +215,13 @@ private fun HeartRateCard(
                     "${heartRate.bpm.toInt()} bpm · ${heartRate.status.label}",
                     style = MaterialTheme.typography.headlineMedium
                 )
+                if (heartRate.source != null) {
+                    Text(
+                        sourceLabel(heartRate.source),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             } else {
                 Text(
                     "측정 준비 중입니다",

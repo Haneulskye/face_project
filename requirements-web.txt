@@ -1,8 +1,12 @@
 # Minimal runtime dependencies for the deployed web/backend service
 # (backend/api.py). The full requirements.txt also includes offline
-# preprocessing/training tools (torch, pandas, kaggle, ...) that the
-# live server never imports — keeping this list separate keeps the
-# deployed image small and the build fast on free-tier hosting.
+# preprocessing/training tools (pandas, kaggle, ...) that the live
+# server never imports — keeping this list separate keeps the deployed
+# image small and the build fast on free-tier hosting.
+#
+# torch/torchvision ARE needed here (unlike before) — backend/iris_auth.py
+# is now wired into the live /auth/face and /users/register endpoints, and
+# it depends on src/iris_embedding.py's ResNet18 feature extractor.
 
 fastapi
 uvicorn[standard]
@@ -12,3 +16,5 @@ numpy
 onnxruntime
 mediapipe==0.10.14
 Pillow
+torch==2.13.0
+torchvision==0.28.0

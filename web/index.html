@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>얼굴·심박 인증</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=2" />
 </head>
 <body>
   <div id="app">
@@ -32,9 +32,19 @@
       <div class="camera-wrap">
         <video id="cameraVideo" autoplay playsinline muted></video>
         <div class="camera-message" id="cameraMessage" style="display:none"></div>
+        <div class="scan-guide" id="scanGuide"></div>
+        <p class="scan-guide-text" id="scanGuideText">타원 안에 얼굴과 눈이 오도록 맞춰주세요</p>
         <div class="camera-overlay" id="scanOverlay" style="display:none">
           <div class="spinner"></div>
-          <span>인증 중...</span>
+          <span>얼굴+홍채 인식 중...</span>
+        </div>
+        <div class="scan-success-overlay" id="scanSuccessOverlay" style="display:none">
+          <div class="match-row matched">
+            <span class="dot">✓</span><span>얼굴 인증 일치</span>
+          </div>
+          <div class="match-row" id="irisMatchRow">
+            <span class="dot">✓</span><span id="irisMatchLabel">홍채 인증 일치</span>
+          </div>
         </div>
       </div>
       <p class="error-text" id="scanError" style="display:none"></p>
@@ -132,6 +142,7 @@
         <div class="heart-card" id="heartCard">
           <p class="heart-card-title">❤️ 오늘의 심박수</p>
           <p class="heart-card-value" id="heartValue">측정 준비 중입니다</p>
+          <p class="heart-card-source" id="heartSource" style="display:none"></p>
           <p class="heart-card-solution" id="heartSolution">심박수 측정 기능은 준비 중입니다.</p>
           <button class="btn btn-primary" id="measureBtn">심박수 측정</button>
         </div>
@@ -154,6 +165,6 @@
     </section>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=2"></script>
 </body>
 </html>

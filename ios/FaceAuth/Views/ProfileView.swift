@@ -68,6 +68,14 @@ struct ProfileView: View {
         .task { viewModel.load(name: name) }
     }
 
+    private func sourceLabel(_ source: String) -> String {
+        switch source {
+        case "apple_watch": return "애플 워치로 측정됨"
+        case "galaxy_watch": return "갤럭시 워치로 측정됨"
+        default: return "워치로 측정됨"
+        }
+    }
+
     private func statTile(value: String, label: String) -> some View {
         VStack(spacing: 2) {
             Text(value).font(.title3.bold())
@@ -83,6 +91,11 @@ struct ProfileView: View {
             if viewModel.heartRate.available, let bpm = viewModel.heartRate.bpm {
                 Text("\(Int(bpm)) bpm · \(viewModel.heartRate.status.label)")
                     .font(.title2.bold())
+                if let source = viewModel.heartRate.source {
+                    Text(sourceLabel(source))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             } else {
                 Text("측정 준비 중입니다")
                     .font(.title3.bold())
@@ -93,7 +106,7 @@ struct ProfileView: View {
                 .foregroundStyle(.secondary)
 
             Button {
-                viewModel.measure(name: name)
+                viewModel.measureFromWatch(name: name)
             } label: {
                 if viewModel.heartRate.isMeasuring {
                     ProgressView().tint(.white)

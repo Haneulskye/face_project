@@ -213,20 +213,21 @@ uvicorn backend.api:app --host 0.0.0.0 --port 8000 --reload
 
 | Method | Endpoint | 설명 |
 |---|---|---|
-| POST | `/auth/face` | 얼굴 이미지(`image`, multipart)로 인증. `{authenticated, name, score, profile, reason}` 반환 |
-| POST | `/users/register` | 신규 사용자 등록. `name/age/nickname/gender/height_cm/weight_kg(선택)/consent` + `image` |
+| POST | `/auth/face` | 얼굴 이미지(`image`, multipart)로 인증. `{authenticated, name, score, profile, reason, iris}` 반환. `iris: {matched, score, reason}`는 같은 사진에서 함께 계산되는 보조 신호일 뿐, 최종 `authenticated` 판정은 얼굴 결과만으로 결정된다 (아래 홍채 인식 참고) |
+| POST | `/users/register` | 신규 사용자 등록. `name/age/nickname/gender/height_cm/weight_kg(선택)/consent` + `image`. 같은 사진에서 홍채도 best-effort로 함께 등록됨 |
 | GET | `/users/{name}` | 등록된 사용자 프로필 조회 |
-| GET/POST | `/users/{name}/heart-rate/*` | rPPG 연동 전까지 `available: false`를 반환하는 자리표시자 (아래 참고) |
+| GET | `/users/{name}/heart-rate/latest`, `/history` | 워치에서 동기화되어 저장된 최신/전체 심박수 기록 조회 |
+| POST | `/users/{name}/heart-rate/measure` | `bpm`(옵션) + `source`(옵션, 예: `galaxy_watch`/`apple_watch`)를 보내면 저장 후 반환. `bpm`을 안 보내면 기존처럼 `{"available": false}` (워치 미연동 기기용 안전한 폴백) |
 
-등록 시 **만 14세 미만은 `age_restricted`(400)로 거부**된다 (클라이언트에서도 동일하게 막지만 서버에서 한 번 더 검증). 등록된 얼굴 embedding은 `output/database/database.pkl`에 추가되고, 프로필(나이/닉네임/성별/키/몸무게)은 `users.db`의 `app_users` 테이블에 저장된다. 기존 `iris_users` 테이블과는 분리되어 있다.
+등록 시 **만 14세 미만은 `age_restricted`(400)로 거부**된다 (클라이언트에서도 동일하게 막지만 서버에서 한 번 더 검증). 등록된 얼굴 embedding은 `output/database/database.pkl`에 추가되고, 프로필(나이/닉네임/성별/키/몸무게)은 `users.db`의 `app_users` 테이블에 저장된다. 홍채 embedding은 기존 `iris_users` 테이블에 함께 저장되지만, 매칭 시에는 `app_users`에 등록된 이름으로만 필터링해서 CASIA 데이터셋의 249명과 섞이지 않도록 했다.
 
-### rPPG(심박수) 연동 지점
+### 홍채 인식 (프로토타입 / 데모 단계)
 
-B팀 rPPG 모듈이 준비되면 아래 두 곳만 실제 측정값으로 교체하면 앱 전체에 반영된다.
+`backend/iris_auth.py`가 얼굴 사진에서 MediaPipe FaceMesh로 눈 주변을 크롭해 홍채 embedding을 함께 계산한다. 다만 `src/iris_embedding.py`의 모델은 **홍채 전용으로 학습된 모델이 아니라 ImageNet 사전학습 ResNet18에서 분류 헤드만 제거한 범용 특징 추출기**다 — 즉 실제 홍채 무늬 기반 생체인증이 아니라 눈 주변 이미지의 대략적인 유사도 비교에 가깝다. 폰 카메라(가시광선)로는 적외선 홍채 카메라 수준의 무늬 디테일을 애초에 촬영할 수 없다는 하드웨어 한계도 있다. 그래서 얼굴 인식이 최종 인증을 판정하고, 홍채 결과는 화면에 함께 보여주기만 하는 보조 신호로 설계했다. **정확도 개선은 2026년 10월 말 예정** — 이때는 홍채 전용으로 파인튜닝한 모델로 교체하는 것이 핵심이며, 임계값 조정만으로는 근본적인 해결이 안 된다.
 
-1. `backend/api.py`의 `latest_heart_rate` / `heart_rate_history` / `measure_heart_rate` — 현재는 `{"available": false, ...}` 고정 반환
-2. 안드로이드·iOS·웹 클라이언트 모두 이미 `available`/`bpm`을 그대로 그려주므로 앱 코드 수정 없이 백엔드만 채우면 됨
-   (참고: 심박수는 카메라 rPPG 대신 갤럭시 워치 연동으로 바뀔 수 있음 — 이 경우도 백엔드 응답 스키마는 그대로 재사용 가능)
+### 워치 심박수 연동
+
+카메라 rPPG 대신 페어링된 워치(갤럭시 워치는 Android의 Health Connect, 애플 워치는 iOS의 HealthKit)에서 읽은 값을 `POST /users/{name}/heart-rate/measure`로 백엔드에 올리는 방식으로 구현했다. 브라우저는 워치에 직접 접근할 수 없으므로, 웹 클라이언트는 폰 앱이 이미 올려둔 값을 조회만 한다. `backend/heart_rate_store.py`가 기록을 저장한다.
 
 ## 안드로이드 앱
 
@@ -240,9 +241,10 @@ B팀 rPPG 모듈이 준비되면 아래 두 곳만 실제 측정값으로 교체
    └─ 등록된 얼굴 → 얼굴 인식 완료(프로필 + 오늘의 심박수 + 전체기록)
 ```
 
-- `android/app/build.gradle.kts`의 `API_BASE_URL`은 기본값이 `http://10.0.2.2:8000/`(에뮬레이터에서 호스트 PC로 접속하는 주소)이다. 실제 기기에서 테스트하려면 이 값을 PC의 LAN IP(`http://192.168.x.x:8000/`)로 바꿔야 한다.
-- 심박수 카드는 현재 백엔드가 `available: false`를 주므로 "측정 준비 중"으로만 표시된다 — rPPG 연동 후 자동으로 실제 bpm이 표시된다.
-- 주요 구조: `network/`(Retrofit), `data/AuthRepository.kt`(API 호출 + 에러 메시지 매핑), `ui/screens/`(화면별 Composable + ViewModel), `navigation/NavGraph.kt`(화면 흐름).
+- `android/app/build.gradle.kts`의 `API_BASE_URL`은 debug 빌드에서 `http://10.0.2.2:8000/`(에뮬레이터→호스트 PC), release 빌드에서는 현재 임시 ngrok 터널 주소로 되어 있다 — 캠퍼스 네트워크가 폰↔맥 LAN 직접 연결을 막아서 쓴 임시방편이라 **터널을 재시작하면 이 값도 다시 바꿔야 한다.**
+- 얼굴 인식 화면에 FaceID 스타일 타원 가이드(`FaceScanScreen.kt`의 `FaceAlignmentGuideOverlay`)가 항상 표시되고, 인증 성공 시 얼굴+홍채 일치 여부를 잠깐 함께 보여준다.
+- 심박수는 프로필 화면에서 "심박수 측정"을 누르면 Health Connect(`health/HealthConnectManager.kt`)에서 갤럭시 워치가 동기화한 최신 값을 읽어 백엔드로 올린다. Health Connect가 없거나(에뮬레이터 등) 동기화된 값이 없으면 기존처럼 "측정 준비 중"으로 표시된다.
+- 주요 구조: `network/`(Retrofit), `data/AuthRepository.kt`(API 호출 + 에러 메시지 매핑), `health/`(Health Connect), `ui/screens/`(화면별 Composable + ViewModel), `navigation/NavGraph.kt`(화면 흐름).
 
 ## iOS 앱
 
@@ -267,9 +269,11 @@ xcodebuild -project ios/FaceAuth.xcodeproj -scheme FaceAuth \
 
 ### 참고
 
-- `FaceAuth/Networking/APIClient.swift`의 `APIConfig.baseURL`이 백엔드 주소(기본값 LAN IP)다. 안드로이드와 달리 iOS 시뮬레이터는 Mac의 네트워크를 그대로 공유하므로 `10.0.2.2` 같은 별도 주소가 필요 없고, LAN IP나 `127.0.0.1`을 바로 쓸 수 있다. 실기기 테스트 시엔 LAN IP를 유지해야 한다.
+- `FaceAuth/Networking/APIClient.swift`의 `APIConfig.baseURL`이 백엔드 주소다. 안드로이드 release 빌드와 동일한 임시 ngrok 터널 주소를 쓰고 있다 — 터널을 재시작하면 이 값도 다시 바꿔야 한다.
 - 카메라 프리뷰(`Camera/CameraController.swift`)는 시뮬레이터에 실제 카메라 장치가 없으면 "이 기기에서는 카메라를 사용할 수 없습니다"로 안전하게 대체 표시된다 (크래시하지 않음). 실기기에서는 정상적으로 전면 카메라가 뜬다.
-- 주요 구조: `Networking/`(URLSession 기반 APIClient + DTO), `Camera/`(AVFoundation), `Views/`(화면별 SwiftUI View + ViewModel), `App/ContentView.swift`(NavigationStack 기반 화면 흐름).
+- 얼굴 인식 화면에 FaceID 스타일 타원 가이드가 표시되고, 인증 성공 시 얼굴+홍채 일치 여부를 잠깐 함께 보여준다 (`Views/FaceScanView.swift`).
+- 심박수는 프로필 화면에서 "심박수 측정"을 누르면 HealthKit(`Health/HealthKitManager.swift`)에서 애플 워치가 기록한 최신 값을 읽어 백엔드로 올린다. `com.apple.developer.healthkit` 엔타이틀먼트가 필요하며 `project.yml`에 선언되어 있어 `xcodegen generate` 시 자동 생성된다. **애플 워치 실기기 페어링이 없는 환경(시뮬레이터 등)에서는 검증되지 않았다** — HealthKit은 시뮬레이터에서 실제 워치 데이터를 받을 수 없다.
+- 주요 구조: `Networking/`(URLSession 기반 APIClient + DTO), `Camera/`(AVFoundation), `Health/`(HealthKit), `Views/`(화면별 SwiftUI View + ViewModel), `App/ContentView.swift`(NavigationStack 기반 화면 흐름).
 
 ## 웹 앱 (학술제 제출용 — 가장 안정적인 데모 경로)
 
@@ -283,8 +287,9 @@ uvicorn backend.api:app --host 0.0.0.0 --port 8000 --reload
 브라우저에서 `http://localhost:8000/` 접속 (같은 Wi-Fi의 다른 기기는 `http://<이 PC의 LAN IP>:8000/`).
 
 - 안드로이드/iOS 에뮬레이터·시뮬레이터와 달리 **실제 브라우저의 `getUserMedia`는 카메라 접근이 안정적**이라, 학술제 현장 데모에는 이 웹 버전이 가장 사고 위험이 적다.
-- 화면 흐름·필드·검증 로직(닉네임, 몸무게 선택, 만 14세 미만 차단)은 안드로이드/iOS와 동일하다.
-- 주요 구조: `web/index.html`(마크업 + 화면 섹션), `web/app.js`(카메라 캡처·API 호출·화면 전환 전부 포함, 프레임워크 없음), `web/style.css`.
+- 화면 흐름·필드·검증 로직(닉네임, 몸무게 선택, 만 14세 미만 차단)은 안드로이드/iOS와 동일하다. 얼굴 인식 화면엔 동일한 FaceID 스타일 타원 가이드가 있고, 인증 성공 시 얼굴+홍채 일치 여부를 잠깐 보여준다.
+- 브라우저는 워치(Health Connect/HealthKit)에 직접 접근할 수 없으므로, 심박수 카드는 폰 앱이 이미 백엔드에 올려둔 값을 조회만 한다 — 웹만 단독으로 켜둔 경우엔 "측정 준비 중"으로 남는다.
+- 주요 구조: `web/index.html`(마크업 + 화면 섹션), `web/app.js`(카메라 캡처·API 호출·화면 전환 전부 포함, 프레임워크 없음), `web/style.css`. 정적 파일에 `?v=2` 같은 캐시 버스팅 쿼리가 붙어있다 — 브라우저가 이전 `style.css`/`app.js`를 강하게 캐싱해서 배포 후 변경 사항이 반영되지 않는 문제가 있었다. 다음에 이 파일들을 수정하면 버전 번호를 올려야 한다.
 
 ### 학술제 제출용 배포 (Render.com 무료 티어)
 
@@ -294,7 +299,7 @@ uvicorn backend.api:app --host 0.0.0.0 --port 8000 --reload
 
 1. 얼굴인식 모델(`models/w600k_r50.onnx`, 166MB)은 GitHub 100MB 제한을 넘어 **Git LFS**로 관리한다. 이미 이 저장소에 설정되어 있음 (`.gitattributes` 참고) — 새로 클론했다면 `brew install git-lfs && git lfs install` 후 `git lfs pull` 한 번만 하면 된다.
 2. CASIA 연구용 얼굴 DB(`output/database/database.pkl`, 208MB, 98,000여 명)는 **배포에 포함하지 않는다** — 용량 문제뿐 아니라 연구용 데이터셋을 공개 서버에 올리는 것 자체가 바람직하지 않다. `backend/face_auth.py`가 이 파일이 없으면 자동으로 빈 데이터베이스로 시작하도록 이미 처리되어 있다 (`output/`는 `.gitignore`에 계속 남아있다).
-3. 배포 서버는 `requirements.txt`(연구용 전처리 도구 포함, torch 등) 대신 **`requirements-web.txt`**(FastAPI 실행에 필요한 것만, 훨씬 가벼움)를 쓴다.
+3. 배포 서버는 `requirements.txt`(연구용 전처리 도구까지 포함) 대신 **`requirements-web.txt`**(FastAPI 실행에 필요한 것만)를 쓴다. 홍채 인식이 `/auth/face`·`/users/register`에 함께 연결되면서 `torch`/`torchvision`도 이제 여기 포함된다 — 이전보다 빌드 용량·시간이 늘었다 (아래 "첫 빌드는 5~10분" 참고).
 
 **배포 절차**
 

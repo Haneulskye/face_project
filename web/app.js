@@ -193,6 +193,9 @@ const cameraMessage = document.getElementById("cameraMessage");
 const captureBtn = document.getElementById("captureBtn");
 const scanOverlay = document.getElementById("scanOverlay");
 const scanError = document.getElementById("scanError");
+const scanSuccessOverlay = document.getElementById("scanSuccessOverlay");
+const irisMatchRow = document.getElementById("irisMatchRow");
+const irisMatchLabel = document.getElementById("irisMatchLabel");
 
 async function startCamera() {
   scanError.style.display = "none";
@@ -264,6 +267,18 @@ captureBtn.addEventListener("click", async () => {
   const data = result.data;
   if (data.authenticated && data.name) {
     state.currentName = data.name;
+
+    // 얼굴 인증이 최종 판정을 내리고, 같은 사진에서 함께 계산된 홍채
+    // 일치 여부는 보조 정보로 잠깐 함께 보여준다.
+    const irisMatched = !!(data.iris && data.iris.matched);
+    irisMatchRow.classList.toggle("matched", irisMatched);
+    irisMatchRow.classList.toggle("unmatched", !irisMatched);
+    irisMatchLabel.textContent = irisMatched ? "홍채 인증 일치" : "홍채 인증 불일치";
+    scanSuccessOverlay.style.display = "flex";
+
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    scanSuccessOverlay.style.display = "none";
+
     showView("profile", { replaceHistory: true });
   } else if (data.reason === "face_not_detected") {
     scanError.textContent = "얼굴을 인식하지 못했습니다. 정면을 바라보고 다시 촬영해주세요.";
@@ -412,22 +427,38 @@ async function loadProfile() {
   await refreshHeartRateCard();
 }
 
+function sourceLabel(source) {
+  switch (source) {
+    case "galaxy_watch":
+      return "갤럭시 워치로 측정됨";
+    case "apple_watch":
+      return "애플 워치로 측정됨";
+    default:
+      return "워치로 측정됨";
+  }
+}
+
 async function refreshHeartRateCard() {
   const heartCard = document.getElementById("heartCard");
   const heartValue = document.getElementById("heartValue");
+  const heartSource = document.getElementById("heartSource");
   const heartSolution = document.getElementById("heartSolution");
 
   const result = await latestHeartRate(state.currentName);
   let bpm = null;
   let available = false;
+  let source = null;
   if (result.ok) {
     bpm = result.data.bpm;
     available = result.data.available;
+    source = result.data.source;
   }
 
   const status = heartStatusFor(available ? bpm : null);
   heartCard.className = "heart-card" + (status.key !== "unknown" ? ` status-${status.key}` : "");
   heartValue.textContent = available && bpm != null ? `${Math.round(bpm)} bpm · ${status.label}` : "측정 준비 중입니다";
+  heartSource.textContent = available && source ? sourceLabel(source) : "";
+  heartSource.style.display = available && source ? "block" : "none";
   heartSolution.textContent = solutionMessageFor(status.key);
 }
 
@@ -469,7 +500,8 @@ async function loadHistory() {
   records.forEach((r) => {
     const item = document.createElement("div");
     item.className = "history-item";
-    item.innerHTML = `<div class="bpm">${Math.round(r.bpm)} bpm · ${r.status}</div><div class="time">${r.measured_at}</div>`;
+    const label = heartStatusFor(r.bpm).label;
+    item.innerHTML = `<div class="bpm">${Math.round(r.bpm)} bpm · ${label}</div><div class="time">${r.measured_at}</div>`;
     list.appendChild(item);
   });
 }

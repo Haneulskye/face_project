@@ -7,11 +7,12 @@ enum APIResult<T> {
 
 /// Talks to the same FastAPI backend (`backend/api.py`) the Android app uses.
 ///
-/// The iOS Simulator shares the host Mac's network stack, so it can reach
-/// this LAN IP directly. A real iPhone needs to be on the same Wi-Fi as the
-/// Mac running `uvicorn backend.api:app`. Rebuild if that IP changes.
+/// This points at the same temporary ngrok tunnel the Android release build
+/// uses — the campus network blocks direct phone-to-Mac LAN connections, so
+/// a plain LAN IP doesn't work for a real iPhone. ngrok URLs are ephemeral;
+/// rebuild both apps if the tunnel is restarted.
 enum APIConfig {
-    static let baseURL = URL(string: "http://10.10.8.30:8000")!
+    static let baseURL = URL(string: "https://postpositively-noninhibitory-anita.ngrok-free.dev")!
 }
 
 final class APIClient {
@@ -69,8 +70,15 @@ final class APIClient {
         await send(path: "users/\(name)/heart-rate/history", method: "GET")
     }
 
-    func measureHeartRate(name: String) async -> APIResult<HeartRateResponse> {
-        await send(path: "users/\(name)/heart-rate/measure", method: "POST")
+    func measureHeartRate(name: String, bpm: Double? = nil, source: String? = nil) async -> APIResult<HeartRateResponse> {
+        var body = MultipartBody()
+        if let bpm {
+            body.addField(name: "bpm", value: String(bpm))
+        }
+        if let source {
+            body.addField(name: "source", value: source)
+        }
+        return await send(path: "users/\(name)/heart-rate/measure", method: "POST", multipart: body)
     }
 
     // MARK: - Core request handling

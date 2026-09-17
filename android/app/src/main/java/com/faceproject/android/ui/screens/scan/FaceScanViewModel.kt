@@ -13,6 +13,7 @@ import java.io.File
 sealed class FaceScanUiState {
     data object Idle : FaceScanUiState()
     data object Authenticating : FaceScanUiState()
+    data class Success(val name: String, val irisMatched: Boolean) : FaceScanUiState()
     data class Error(val message: String) : FaceScanUiState()
 }
 
@@ -25,7 +26,6 @@ class FaceScanViewModel(
 
     fun authenticate(
         imageFile: File,
-        onRegisteredUser: (name: String) -> Unit,
         onUnregisteredFace: () -> Unit
     ) {
         uiState = FaceScanUiState.Authenticating
@@ -36,8 +36,12 @@ class FaceScanViewModel(
                     val response = result.data
                     when {
                         response.authenticated && response.name != null -> {
-                            uiState = FaceScanUiState.Idle
-                            onRegisteredUser(response.name)
+                            // 얼굴 인증이 최종 판정을 내리고, 같은 사진에서 함께 계산된
+                            // 홍채 일치 여부는 보조 정보로 잠깐 함께 보여준다.
+                            uiState = FaceScanUiState.Success(
+                                name = response.name,
+                                irisMatched = response.iris?.matched == true
+                            )
                         }
 
                         response.reason == "face_not_detected" -> {

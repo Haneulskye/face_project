@@ -52,5 +52,6 @@ android/emulator.log
 # iOS (XcodeGen project.yml is the source of truth; regenerate with `xcodegen generate`)
 ios/FaceAuth.xcodeproj/
 ios/FaceAuth/Info.plist
+ios/FaceAuth/FaceAuth.entitlements
 ios/.build/
 ios/DerivedData/

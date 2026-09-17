@@ -15,6 +15,7 @@ data class HeartRateUiState(
     val available: Boolean = false,
     val bpm: Double? = null,
     val status: HeartRateStatus = HeartRateStatus.UNKNOWN,
+    val source: String? = null,
     val isMeasuring: Boolean = false
 )
 
@@ -51,7 +52,8 @@ class ProfileViewModel(
                     heartRate = HeartRateUiState(
                         available = result.data.available,
                         bpm = bpm,
-                        status = bpm?.let { HeartRateStatus.fromBpm(it) } ?: HeartRateStatus.UNKNOWN
+                        status = bpm?.let { HeartRateStatus.fromBpm(it) } ?: HeartRateStatus.UNKNOWN,
+                        source = result.data.source
                     )
                 }
                 // Heart-rate is best-effort; a failure here shouldn't block the profile screen.
@@ -60,18 +62,19 @@ class ProfileViewModel(
         }
     }
 
-    fun measure(name: String) {
+    fun measure(name: String, bpm: Double? = null, source: String? = null) {
         heartRate = heartRate.copy(isMeasuring = true)
 
         viewModelScope.launch {
-            val result = repository.measureHeartRate(name)
+            val result = repository.measureHeartRate(name, bpm, source)
             heartRate = when (result) {
                 is ApiResult.Success -> {
-                    val bpm = result.data.bpm
+                    val measuredBpm = result.data.bpm
                     HeartRateUiState(
                         available = result.data.available,
-                        bpm = bpm,
-                        status = bpm?.let { HeartRateStatus.fromBpm(it) } ?: HeartRateStatus.UNKNOWN
+                        bpm = measuredBpm,
+                        status = measuredBpm?.let { HeartRateStatus.fromBpm(it) } ?: HeartRateStatus.UNKNOWN,
+                        source = result.data.source
                     )
                 }
                 is ApiResult.Error -> heartRate.copy(isMeasuring = false)

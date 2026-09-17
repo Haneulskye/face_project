@@ -57,8 +57,17 @@ class AuthRepository(
     suspend fun heartRateHistory(name: String): ApiResult<HeartRateHistoryResponse> =
         safeCall { api.heartRateHistory(name) }
 
-    suspend fun measureHeartRate(name: String): ApiResult<HeartRateResponse> =
-        safeCall { api.measureHeartRate(name) }
+    suspend fun measureHeartRate(
+        name: String,
+        bpm: Double? = null,
+        source: String? = null
+    ): ApiResult<HeartRateResponse> = safeCall {
+        api.measureHeartRate(
+            name = name,
+            bpm = bpm?.toString()?.toPlainRequestBody(),
+            source = source?.toPlainRequestBody()
+        )
+    }
 
     private fun imagePart(file: File): MultipartBody.Part {
         val body = file.asRequestBody("image/jpeg".toMediaType())

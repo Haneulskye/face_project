@@ -109,6 +109,19 @@ dependencies {
     // Runtime permission handling for Compose
     implementation("com.google.accompanist:accompanist-permissions:0.34.0")
 
+    // Health Connect — reads heart rate synced from a paired watch
+    // (e.g. Galaxy Watch via Samsung Health) instead of camera-based rPPG.
+    implementation("androidx.health.connect:connect-client:1.1.0-alpha07")
+
+    // connect-client's module metadata strictly forces
+    // com.google.guava:listenablefuture to the "empty" stub artifact
+    // (correct only when full Guava is also on the classpath, to avoid a
+    // duplicate-class conflict). Without this, CameraX's own use of
+    // ListenableFuture — via the guava-free 1.0 stub it normally relies
+    // on — stops compiling. Pulling in full Guava directly makes that
+    // substitution valid again.
+    implementation("com.google.guava:guava:31.1-android")
+
     // Networking
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")

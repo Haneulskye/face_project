@@ -43,6 +43,11 @@ interface ApiService {
     @GET("users/{name}/heart-rate/history")
     suspend fun heartRateHistory(@Path("name") name: String): HeartRateHistoryResponse
 
+    @Multipart
     @POST("users/{name}/heart-rate/measure")
-    suspend fun measureHeartRate(@Path("name") name: String): HeartRateResponse
+    suspend fun measureHeartRate(
+        @Path("name") name: String,
+        @Part("bpm") bpm: RequestBody?,
+        @Part("source") source: RequestBody?
+    ): HeartRateResponse
 }

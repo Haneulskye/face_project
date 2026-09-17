@@ -5,6 +5,9 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="true" />
 
+    <!-- Health Connect: read heart rate synced from a paired watch (e.g. Galaxy Watch). -->
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -23,5 +26,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Required by Health Connect so it can show a rationale for READ_HEART_RATE. -->
+        <activity-alias
+            android:name=".HealthConnectPermissionsRationaleActivity"
+            android:exported="true"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity-alias>
     </application>
 </manifest>
