@@ -309,6 +309,19 @@ def register_face(name, image):
     return embedding
 
 
+def delete_face(name):
+    """Remove `name`'s embedding from the database, if present."""
+
+    with DATABASE_LOCK:
+        existed = DATABASE.pop(name, None) is not None
+
+        if existed:
+            with open(DATABASE_PATH, "wb") as f:
+                pickle.dump(DATABASE, f)
+
+    return existed
+
+
 # ============================================================
 # TEST
 # ============================================================

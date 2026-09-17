@@ -86,3 +86,10 @@ def get_user(name):
     ).fetchone()
     conn.close()
     return dict(row) if row else None
+
+
+def delete_user(name):
+    conn = get_db_connection()
+    conn.execute("DELETE FROM app_users WHERE name = ?", (name,))
+    conn.commit()
+    conn.close()

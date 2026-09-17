@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
 from backend import user_profile_store
-from backend.face_auth import authenticate_face, register_face
+from backend.face_auth import authenticate_face, delete_face, register_face
 
 app = FastAPI(title="Face Auth API")
 
@@ -122,6 +122,17 @@ def get_user(name: str):
         raise HTTPException(status_code=404, detail="user_not_found")
 
     return profile
+
+
+@app.delete("/users/{name}")
+def delete_user(name: str):
+    if not user_profile_store.user_exists(name):
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    delete_face(name)
+    user_profile_store.delete_user(name)
+
+    return {"success": True, "name": name}
 
 
 # ============================================================
