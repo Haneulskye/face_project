@@ -191,14 +191,18 @@ body {
   border-radius: 12px;
   overflow: hidden;
   position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   min-height: 320px;
   margin-bottom: 16px;
 }
 
 .camera-wrap video {
+  /* Absolute + inset instead of flex-centering: a flex item's default
+     min-height:auto keeps a <video> at its intrinsic (stream) size on
+     Safari/iOS even with width/height:100%, so it renders as a small
+     box instead of filling the container. Absolute positioning isn't
+     subject to that flex sizing quirk. */
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -206,6 +210,11 @@ body {
 }
 
 .camera-message {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: white;
   text-align: center;
   padding: 24px;

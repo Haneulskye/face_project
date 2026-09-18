@@ -226,7 +226,7 @@ async function startCamera() {
 function showCameraMessage(text) {
   video.style.display = "none";
   cameraMessage.textContent = text;
-  cameraMessage.style.display = "block";
+  cameraMessage.style.display = "flex";
   captureBtn.disabled = true;
 }
 
