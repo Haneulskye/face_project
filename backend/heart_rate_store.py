@@ -77,3 +77,10 @@ def get_history(name, limit=20):
     ).fetchall()
     conn.close()
     return [dict(row) for row in rows]
+
+
+def delete_records(name):
+    conn = get_db_connection()
+    conn.execute("DELETE FROM heart_rate_records WHERE name = ?", (name,))
+    conn.commit()
+    conn.close()

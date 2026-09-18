@@ -332,6 +332,13 @@ def register_iris(name, image):
     return embedding
 
 
+def has_iris(name):
+    conn = get_db_connection()
+    row = conn.execute("SELECT 1 FROM iris_users WHERE name = ?", (name,)).fetchone()
+    conn.close()
+    return row is not None
+
+
 def delete_iris(name):
     """Remove `name`'s iris entry, if present. Returns whether one existed."""
 

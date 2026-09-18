@@ -93,3 +93,12 @@ def delete_user(name):
     conn.execute("DELETE FROM app_users WHERE name = ?", (name,))
     conn.commit()
     conn.close()
+
+
+def list_users():
+    conn = get_db_connection()
+    rows = conn.execute(
+        "SELECT * FROM app_users ORDER BY registered_at DESC"
+    ).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]

@@ -7,21 +7,27 @@ Run with:
 """
 
 import io
+import os
 from pathlib import Path
 from typing import Optional
 
 import cv2
 import numpy as np
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
 from backend import heart_rate_store, user_profile_store
 from backend.face_auth import LowQualityFaceError, authenticate_face, delete_face, register_face
-from backend.iris_auth import authenticate_iris_from_photo, delete_iris, register_iris
+from backend.iris_auth import authenticate_iris_from_photo, delete_iris, has_iris, register_iris
 
 app = FastAPI(title="Face Auth API")
+
+# Demo-only default — set a real ADMIN_TOKEN env var for any non-local
+# deployment (e.g. in render.yaml). The admin page asks for this as a
+# password and sends it back as the X-Admin-Token header on every call.
+ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "changeme-admin")
 
 # Demo-only: open CORS so the app can be pointed at this server from any
 # device on the network during the 학술제 demo.
@@ -42,6 +48,18 @@ def _heart_rate_status(bpm: float) -> str:
     if bpm > 100:
         return "tachycardia"
     return "normal"
+
+
+def _require_admin(x_admin_token: Optional[str] = Header(None)):
+    if x_admin_token != ADMIN_TOKEN:
+        raise HTTPException(status_code=401, detail="unauthorized")
+
+
+def _delete_user_cascade(name: str):
+    delete_face(name)
+    delete_iris(name)
+    heart_rate_store.delete_records(name)
+    user_profile_store.delete_user(name)
 
 
 def _read_image(upload: UploadFile) -> np.ndarray:
@@ -162,9 +180,35 @@ def delete_user(name: str):
     if not user_profile_store.user_exists(name):
         raise HTTPException(status_code=404, detail="user_not_found")
 
-    delete_face(name)
-    delete_iris(name)
-    user_profile_store.delete_user(name)
+    _delete_user_cascade(name)
+
+    return {"success": True, "name": name}
+
+
+# ============================================================
+# ADMIN — list/delete registered accounts.
+#
+# Protected by a single shared token (ADMIN_TOKEN env var), sent as the
+# X-Admin-Token header. This is demo-grade auth, not production-grade —
+# good enough to keep the delete button out of a random visitor's hands,
+# not meant to withstand a determined attacker.
+# ============================================================
+
+@app.get("/admin/users")
+def admin_list_users(_: None = Depends(_require_admin)):
+    users = user_profile_store.list_users()
+    for user in users:
+        user["has_iris"] = has_iris(user["name"])
+        user["latest_heart_rate"] = heart_rate_store.get_latest(user["name"])
+    return {"users": users}
+
+
+@app.delete("/admin/users/{name}")
+def admin_delete_user(name: str, _: None = Depends(_require_admin)):
+    if not user_profile_store.user_exists(name):
+        raise HTTPException(status_code=404, detail="user_not_found")
+
+    _delete_user_cascade(name)
 
     return {"success": True, "name": name}
 

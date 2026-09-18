@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>관리자 - 얼굴·심박 인증</title>
+  <link rel="stylesheet" href="style.css?v=2" />
+  <link rel="stylesheet" href="admin.css?v=1" />
+</head>
+<body>
+  <div id="admin-app">
+    <header class="admin-header">
+      <h1>등록 계정 관리</h1>
+      <button id="logoutBtn" style="display:none">로그아웃</button>
+    </header>
+
+    <section id="loginView" class="admin-card">
+      <p class="admin-hint">관리자 비밀번호(ADMIN_TOKEN)를 입력하세요.</p>
+      <input type="password" id="tokenInput" placeholder="관리자 비밀번호" />
+      <button id="loginBtn" class="btn-primary">로그인</button>
+      <p class="error-text" id="loginError" style="display:none"></p>
+    </section>
+
+    <section id="dashboardView" style="display:none">
+      <div class="admin-toolbar">
+        <span id="userCount"></span>
+        <div>
+          <button id="refreshBtn">새로고침</button>
+          <button id="deleteAllBtn" class="btn-danger">전체 삭제</button>
+        </div>
+      </div>
+
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>이름</th>
+              <th>닉네임</th>
+              <th>나이</th>
+              <th>성별</th>
+              <th>키/몸무게</th>
+              <th>홍채 등록</th>
+              <th>최근 심박수</th>
+              <th>등록일</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="userTableBody"></tbody>
+        </table>
+      </div>
+
+      <p id="emptyState" class="admin-hint" style="display:none">등록된 계정이 없습니다.</p>
+    </section>
+  </div>
+
+  <script src="admin.js?v=1"></script>
+</body>
+</html>
