@@ -15,24 +15,27 @@ from src.iris_embedding import extract_iris_embedding
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = PROJECT_ROOT / "users.db"
 
-IRIS_THRESHOLD = 0.68
+IRIS_THRESHOLD = 0.64
 
-# NOTE (2026-09-17 갱신):
-# extract_iris_embedding()은 이제 CASIA-Iris-Interval(249명, 395개
-# subject_eye 클래스)로 파인튜닝된 ResNet18을 쓴다 (src/train_iris_model.py,
-# 가중치는 models/iris_resnet18_finetuned.pt). 파인튜닝 전에는 ImageNet
-# 사전학습 특징만 썼는데, 실제 등록된 사용자들로 측정해보니 서로 다른
-# 사람인데도 코사인 유사도가 0.75~0.87까지 나와 threshold(0.75)로 걸러지지
-# 않는 상태였다 — 사실상 아무나 매칭되는 수준. 파인튜닝 후 CASIA 검증
-# 세트 기준 genuine 평균 0.92(최소 0.61) vs impostor 평균 0.47(최대 0.66)로
-# 분리가 뚜렷해졌고, threshold도 그에 맞춰 0.68로 낮췄다.
+# NOTE (2026-09-21 갱신, 2차 파인튜닝):
+# extract_iris_embedding()은 CASIA-Iris-Interval(249명, 395개 subject_eye
+# 클래스)로 파인튜닝된 ResNet18을 쓴다 (src/train_iris_model.py, 가중치는
+# models/iris_resnet18_finetuned.pt). 최초 파인튜닝(증강 없음) 대비, 학습에
+# 약한 augmentation(RandomResizedCrop/RandomRotation/ColorJitter)을 추가해
+# 다시 학습했다 — CASIA의 정확한 촬영 조건에 과적합하지 않도록 하려는
+# 목적으로, 실제 폰 카메라와의 도메인 차이 자체를 없애주진 않지만 일반화에
+# 도움이 될 것으로 기대. 같은 60-클래스 검증 샘플 기준:
+#   1차: genuine 평균 0.92(최소 0.61) vs impostor 평균 0.47(최대 0.66) — 최소/최대가
+#        서로 겹치는 구간이 있었음(0.61 < 0.66)
+#   2차: genuine 평균 0.93(최소 0.65) vs impostor 평균 0.45(최대 0.63) — 겹침 없이
+#        완전히 분리됨. threshold를 그 사이인 0.64로 낮췄다.
 #
 # 다만 학습 데이터가 적외선 카메라로 찍은 CASIA 이미지라, 폰 카메라(가시광선)
-# 사진과는 도메인 차이가 있다 — 실제 라이브 등록자 데이터로 재검증 전까지는
+# 사진과는 여전히 도메인 차이가 있다 — 실제 라이브 등록자 데이터로 재검증 전까지는
 # 여전히 보조 신호로만 취급한다 (얼굴 인식이 최종 인증을 판정, iris는 화면에
 # 함께 보여주기만 함. backend/api.py 참고).
 #
-# 기존에 등록된 사용자(모델 교체 전)의 홍채 embedding은 새 모델과 호환되지
+# 모델을 교체할 때마다 그 이전에 등록된 사용자의 홍채 embedding은 호환되지
 # 않는다 — 다시 매칭되게 하려면 DELETE 후 재등록해야 한다.
 
 

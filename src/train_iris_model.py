@@ -31,7 +31,7 @@ DATA_DIR = PROJECT_ROOT / "output" / "iris_preprocessed"
 OUTPUT_PATH = PROJECT_ROOT / "models" / "iris_resnet18_finetuned.pt"
 
 SEED = 42
-EPOCHS = 30
+EPOCHS = 40
 BATCH_SIZE = 32
 LR = 1e-4
 SCALE = 30.0
@@ -46,6 +46,23 @@ DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 TRANSFORM = transforms.Compose(
     [
         transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ]
+)
+
+# Training-only augmentation. The biggest known weakness of this model is the
+# domain gap between CASIA's infrared studio captures and a live phone
+# camera's visible-light selfie — mild jitter in rotation/crop/brightness
+# doesn't close that gap, but it does stop the backbone from overfitting to
+# CASIA's exact framing/lighting, which should transfer somewhat better to
+# less controlled captures. Kept mild: too aggressive and it stops looking
+# like an eye crop at all (see backend/iris_auth.py's crop_iris()).
+TRAIN_TRANSFORM = transforms.Compose(
+    [
+        transforms.RandomResizedCrop(224, scale=(0.85, 1.0), ratio=(0.9, 1.1)),
+        transforms.RandomRotation(8),
+        transforms.ColorJitter(brightness=0.25, contrast=0.25),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ]
@@ -88,8 +105,9 @@ def split_train_val(class_samples):
 
 
 class IrisDataset(Dataset):
-    def __init__(self, samples):
+    def __init__(self, samples, transform=TRANSFORM):
         self.samples = samples
+        self.transform = transform
 
     def __len__(self):
         return len(self.samples)
@@ -99,7 +117,7 @@ class IrisDataset(Dataset):
         # output/iris_preprocessed images are already grayscale + CLAHE'd
         # (see src/iris_preprocess.py) — duplicate to RGB, same as inference.
         image = Image.open(path).convert("L").convert("RGB")
-        return TRANSFORM(image), label
+        return self.transform(image), label
 
 
 class NormalizedSoftmaxHead(nn.Module):
@@ -174,7 +192,8 @@ def main():
     print(f"train images: {len(train_samples)}, val images: {len(val_samples)}")
 
     train_loader = DataLoader(
-        IrisDataset(train_samples), batch_size=BATCH_SIZE, shuffle=True, num_workers=0
+        IrisDataset(train_samples, transform=TRAIN_TRANSFORM),
+        batch_size=BATCH_SIZE, shuffle=True, num_workers=0
     )
 
     backbone = build_backbone().to(DEVICE)
