@@ -48,13 +48,24 @@ fun ProfileScreen(
     viewModel: ProfileViewModel,
     onViewHistory: (name: String) -> Unit
 ) {
-    LaunchedEffect(name) {
-        viewModel.load(name)
-    }
-
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val healthConnectManager = remember { HealthConnectManager(context) }
+
+    LaunchedEffect(name) {
+        viewModel.load(name)
+
+        // 권한을 이미 허용해둔 사용자라면 화면을 열 때마다 매번 버튼을 누르지
+        // 않아도 최신 워치 심박수로 자동 동기화한다. 권한이 없으면 여기서
+        // 팝업을 띄우지 않고 조용히 넘어간다 — 그건 버튼을 눌렀을 때만.
+        if (healthConnectManager.hasPermission()) {
+            when (val result = healthConnectManager.readLatestHeartRate()) {
+                is HeartRateReadResult.Success ->
+                    viewModel.measure(name, result.bpm.toDouble(), "galaxy_watch")
+                else -> { /* 새 값이 없으면 기존 최신 기록을 그대로 보여준다. */ }
+            }
+        }
+    }
 
     val healthPermissionLauncher = rememberLauncherForActivityResult(
         contract = PermissionController.createRequestPermissionResultContract()

@@ -10,6 +10,7 @@ const state = {
   capturedBlob: null,
   mediaStream: null,
   currentName: null,
+  heartRatePollTimer: null,
 };
 
 const history = []; // simple back-stack of view names
@@ -128,12 +129,18 @@ const titles = {
   history: "전체기록",
 };
 
+const HEART_RATE_POLL_MS = 20000;
+
 function showView(name, { pushHistory = true, replaceHistory = false } = {}) {
   if (name === "scan") {
     stopCamera(); // always restart fresh
   } else if (state.view === "scan") {
     stopCamera();
   }
+
+  // 워치 값은 폰 앱이 올려주는 것이라 브라우저가 직접 새로고침을 못 받는다 —
+  // 프로필 화면에 머무는 동안만 주기적으로 다시 조회해서 최신 값을 반영한다.
+  stopHeartRatePolling();
 
   if (pushHistory && state.view !== name) {
     if (replaceHistory) {
@@ -150,8 +157,18 @@ function showView(name, { pushHistory = true, replaceHistory = false } = {}) {
   document.getElementById("backBtn").style.display = history.length > 0 ? "block" : "none";
 
   if (name === "scan") startCamera();
-  if (name === "profile") loadProfile();
+  if (name === "profile") {
+    loadProfile();
+    state.heartRatePollTimer = setInterval(refreshHeartRateCard, HEART_RATE_POLL_MS);
+  }
   if (name === "history") loadHistory();
+}
+
+function stopHeartRatePolling() {
+  if (state.heartRatePollTimer) {
+    clearInterval(state.heartRatePollTimer);
+    state.heartRatePollTimer = null;
+  }
 }
 
 function goBack() {
@@ -483,9 +500,11 @@ async function loadHistory() {
   const loading = document.getElementById("historyLoading");
   const empty = document.getElementById("historyEmpty");
   const list = document.getElementById("historyList");
+  const chartWrap = document.getElementById("historyChartWrap");
   loading.style.display = "flex";
   empty.style.display = "none";
   list.style.display = "none";
+  chartWrap.style.display = "none";
   list.innerHTML = "";
 
   const result = await heartRateHistory(state.currentName);
@@ -498,6 +517,9 @@ async function loadHistory() {
     return;
   }
 
+  // 서버는 최신순(내림차순)으로 주므로 그래프는 시간순으로 뒤집어서 그린다.
+  renderHistoryChart([...records].reverse());
+
   list.style.display = "block";
   records.forEach((r) => {
     const item = document.createElement("div");
@@ -506,4 +528,44 @@ async function loadHistory() {
     item.innerHTML = `<div class="bpm">${Math.round(r.bpm)} bpm · ${label}</div><div class="time">${r.measured_at}</div>`;
     list.appendChild(item);
   });
+}
+
+// ---------------------------------------------------------------------
+// HISTORY — line chart (plain inline SVG, no charting library)
+// ---------------------------------------------------------------------
+function renderHistoryChart(records) {
+  const chartWrap = document.getElementById("historyChartWrap");
+  const chartRange = document.getElementById("chartRange");
+  const svg = document.getElementById("historyChart");
+
+  if (records.length < 2) {
+    chartWrap.style.display = "none";
+    return;
+  }
+
+  const W = 320;
+  const H = 140;
+  const bpms = records.map((r) => r.bpm);
+  const minBpm = Math.max(0, Math.min(...bpms) - 5);
+  const maxBpm = Math.max(...bpms) + 5;
+  const stepX = W / (records.length - 1);
+
+  const yFor = (bpm) => H - ((bpm - minBpm) / (maxBpm - minBpm)) * H;
+  const points = records.map((r, i) => [i * stepX, yFor(r.bpm)]);
+
+  const linePath = points.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+
+  const dots = records
+    .map((r, i) => {
+      const [x, y] = points[i];
+      const isNormal = r.bpm >= 60 && r.bpm <= 100;
+      const color = isNormal ? "#2e7d32" : "#ef6c00";
+      return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="white" stroke="${color}" stroke-width="2.5" />`;
+    })
+    .join("");
+
+  svg.innerHTML = `<path d="${linePath}" fill="none" stroke="#1e2761" stroke-width="2.5" stroke-linecap="round" />${dots}`;
+
+  chartRange.textContent = `${Math.round(Math.min(...bpms))}–${Math.round(Math.max(...bpms))} bpm`;
+  chartWrap.style.display = "block";
 }

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>얼굴·심박 인증</title>
-  <link rel="stylesheet" href="style.css?v=3" />
+  <link rel="stylesheet" href="style.css?v=4" />
 </head>
 <body>
   <div id="app">
@@ -161,10 +161,14 @@
         <h2>아직 심박수 기록이 없습니다.</h2>
         <p>심박수 측정 기능이 연결되면 이곳에서 기록을 확인할 수 있어요.</p>
       </div>
+      <div id="historyChartWrap" style="display:none">
+        <p class="chart-range" id="chartRange"></p>
+        <svg id="historyChart" class="history-chart" viewBox="0 0 320 140" preserveAspectRatio="none"></svg>
+      </div>
       <div id="historyList" style="display:none"></div>
     </section>
   </div>
 
-  <script src="app.js?v=3"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>
