@@ -29,8 +29,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -52,6 +55,18 @@ fun ProfileScreen(
     val scope = rememberCoroutineScope()
     val healthConnectManager = remember { HealthConnectManager(context) }
 
+    // Health Connect 연동이 왜 안 되는지 화면에 직접 보여준다 — 이전에는 실패해도
+    // 조용히 "측정 준비 중"으로만 폴백되어 원격으로 원인을 좁히기 어려웠다.
+    var healthDiagnostic by remember { mutableStateOf<String?>(null) }
+
+    fun describeResult(result: HeartRateReadResult): String? = when (result) {
+        is HeartRateReadResult.Success -> null
+        HeartRateReadResult.NoData -> "Health Connect는 연결됐지만 최근 24시간 내 워치 심박수 기록이 없습니다."
+        HeartRateReadResult.NotAvailable -> "이 기기에 Health Connect 앱이 설치되어 있지 않습니다. Play 스토어에서 설치해주세요."
+        HeartRateReadResult.PermissionRequired -> null // 권한 요청 팝업으로 이어짐
+        is HeartRateReadResult.Failure -> "Health Connect 오류: ${result.message}"
+    }
+
     LaunchedEffect(name) {
         viewModel.load(name)
 
@@ -59,11 +74,15 @@ fun ProfileScreen(
         // 않아도 최신 워치 심박수로 자동 동기화한다. 권한이 없으면 여기서
         // 팝업을 띄우지 않고 조용히 넘어간다 — 그건 버튼을 눌렀을 때만.
         if (healthConnectManager.hasPermission()) {
-            when (val result = healthConnectManager.readLatestHeartRate()) {
-                is HeartRateReadResult.Success ->
-                    viewModel.measure(name, result.bpm.toDouble(), "galaxy_watch")
-                else -> { /* 새 값이 없으면 기존 최신 기록을 그대로 보여준다. */ }
+            val result = healthConnectManager.readLatestHeartRate()
+            healthDiagnostic = describeResult(result)
+            if (result is HeartRateReadResult.Success) {
+                viewModel.measure(name, result.bpm.toDouble(), "galaxy_watch")
             }
+        } else if (healthConnectManager.isAvailable()) {
+            healthDiagnostic = "워치 심박수를 보려면 아래 '심박수 측정' 버튼을 눌러 권한을 허용해주세요."
+        } else {
+            healthDiagnostic = "이 기기에 Health Connect 앱이 설치되어 있지 않습니다. Play 스토어에서 설치해주세요."
         }
     }
 
@@ -72,12 +91,15 @@ fun ProfileScreen(
     ) { granted ->
         scope.launch {
             if (granted.containsAll(healthConnectManager.permissions)) {
-                when (val result = healthConnectManager.readLatestHeartRate()) {
-                    is HeartRateReadResult.Success ->
-                        viewModel.measure(name, result.bpm.toDouble(), "galaxy_watch")
-                    else -> viewModel.measure(name)
+                val result = healthConnectManager.readLatestHeartRate()
+                healthDiagnostic = describeResult(result)
+                if (result is HeartRateReadResult.Success) {
+                    viewModel.measure(name, result.bpm.toDouble(), "galaxy_watch")
+                } else {
+                    viewModel.measure(name)
                 }
             } else {
+                healthDiagnostic = "Health Connect 권한을 허용해야 워치 심박수를 가져올 수 있습니다."
                 viewModel.measure(name)
             }
         }
@@ -86,13 +108,16 @@ fun ProfileScreen(
     fun measureFromWatch() {
         scope.launch {
             when (val result = healthConnectManager.readLatestHeartRate()) {
-                is HeartRateReadResult.Success ->
+                is HeartRateReadResult.Success -> {
+                    healthDiagnostic = null
                     viewModel.measure(name, result.bpm.toDouble(), "galaxy_watch")
+                }
                 is HeartRateReadResult.PermissionRequired ->
                     healthPermissionLauncher.launch(healthConnectManager.permissions)
-                // Health Connect가 없거나 워치에서 동기화된 값이 없는 기기(예: 에뮬레이터) —
-                // 기존 "측정 준비 중" 응답으로 자연스럽게 대체된다.
-                else -> viewModel.measure(name)
+                else -> {
+                    healthDiagnostic = describeResult(result)
+                    viewModel.measure(name)
+                }
             }
         }
     }
@@ -173,6 +198,15 @@ fun ProfileScreen(
                         heartRate = viewModel.heartRate,
                         onMeasureClick = { measureFromWatch() }
                     )
+
+                    healthDiagnostic?.let { message ->
+                        Text(
+                            message,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
