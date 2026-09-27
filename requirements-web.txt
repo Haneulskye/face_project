@@ -7,6 +7,12 @@
 # torch/torchvision ARE needed here (unlike before) — backend/iris_auth.py
 # is now wired into the live /auth/face and /users/register endpoints, and
 # it depends on src/iris_embedding.py's ResNet18 feature extractor.
+#
+# NOT listed here on purpose: the default PyPI torch/torchvision wheels for
+# Linux bundle full CUDA runtime libraries and balloon to 500MB+, which blew
+# past Render free tier's 512MB RAM on its own. render.yaml's buildCommand
+# installs the much smaller (~180MB) CPU-only build from PyTorch's own index
+# *before* this file, so pip sees them already satisfied here.
 
 fastapi
 uvicorn[standard]
@@ -16,5 +22,3 @@ numpy
 onnxruntime
 mediapipe==0.10.14
 Pillow
-torch==2.13.0
-torchvision==0.28.0

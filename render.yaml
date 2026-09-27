@@ -14,6 +14,7 @@ services:
       curl -sL https://github.com/git-lfs/git-lfs/releases/download/v3.5.1/git-lfs-linux-amd64-v3.5.1.tar.gz | tar xz &&
       ./git-lfs-3.5.1/git-lfs install --local --force &&
       ./git-lfs-3.5.1/git-lfs pull &&
+      pip install torch==2.6.0+cpu torchvision==0.21.0+cpu --index-url https://download.pytorch.org/whl/cpu &&
       pip install -r requirements-web.txt
     startCommand: "uvicorn backend.api:app --host 0.0.0.0 --port $PORT"
     healthCheckPath: /health
