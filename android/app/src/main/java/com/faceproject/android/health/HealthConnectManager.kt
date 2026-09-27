@@ -29,25 +29,44 @@ class HealthConnectManager(context: Context) {
     val permissions = setOf(HealthPermission.getReadPermission(HeartRateRecord::class))
 
     fun isAvailable(): Boolean =
-        HealthConnectClient.getSdkStatus(appContext) == HealthConnectClient.SDK_AVAILABLE
+        try {
+            HealthConnectClient.getSdkStatus(appContext) == HealthConnectClient.SDK_AVAILABLE
+        } catch (e: Exception) {
+            false
+        }
 
     private val client: HealthConnectClient? by lazy {
-        if (isAvailable()) HealthConnectClient.getOrCreate(appContext) else null
+        try {
+            if (isAvailable()) HealthConnectClient.getOrCreate(appContext) else null
+        } catch (e: Exception) {
+            null
+        }
     }
 
     suspend fun hasPermission(): Boolean {
-        val c = client ?: return false
-        return c.permissionController.getGrantedPermissions().containsAll(permissions)
+        return try {
+            val c = client ?: return false
+            c.permissionController.getGrantedPermissions().containsAll(permissions)
+        } catch (e: Exception) {
+            false
+        }
     }
 
+    /**
+     * Every device/provider call in here is wrapped — a Health Connect quirk on
+     * a specific phone (a bad provider state, a permission-controller hiccup,
+     * ...) must turn into a Failure result, never an uncaught exception. An
+     * uncaught exception here previously crashed the caller's coroutine
+     * silently: the "심박수 측정" button looked like it did nothing at all.
+     */
     suspend fun readLatestHeartRate(): HeartRateReadResult {
-        val c = client ?: return HeartRateReadResult.NotAvailable
-
-        if (!hasPermission()) {
-            return HeartRateReadResult.PermissionRequired
-        }
-
         return try {
+            val c = client ?: return HeartRateReadResult.NotAvailable
+
+            if (!hasPermission()) {
+                return HeartRateReadResult.PermissionRequired
+            }
+
             val now = Instant.now()
             val response = c.readRecords(
                 ReadRecordsRequest(

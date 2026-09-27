@@ -73,16 +73,21 @@ fun ProfileScreen(
         // 권한을 이미 허용해둔 사용자라면 화면을 열 때마다 매번 버튼을 누르지
         // 않아도 최신 워치 심박수로 자동 동기화한다. 권한이 없으면 여기서
         // 팝업을 띄우지 않고 조용히 넘어간다 — 그건 버튼을 눌렀을 때만.
-        if (healthConnectManager.hasPermission()) {
-            val result = healthConnectManager.readLatestHeartRate()
-            healthDiagnostic = describeResult(result)
-            if (result is HeartRateReadResult.Success) {
-                viewModel.measure(name, result.bpm.toDouble(), "galaxy_watch")
+        // 이 블록이 실패해도 프로필 화면 자체는 항상 뜨도록 감싼다.
+        try {
+            if (healthConnectManager.hasPermission()) {
+                val result = healthConnectManager.readLatestHeartRate()
+                healthDiagnostic = describeResult(result)
+                if (result is HeartRateReadResult.Success) {
+                    viewModel.measure(name, result.bpm.toDouble(), "galaxy_watch")
+                }
+            } else if (healthConnectManager.isAvailable()) {
+                healthDiagnostic = "워치 심박수를 보려면 아래 '심박수 측정' 버튼을 눌러 권한을 허용해주세요."
+            } else {
+                healthDiagnostic = "이 기기에 Health Connect 앱이 설치되어 있지 않습니다. Play 스토어에서 설치해주세요."
             }
-        } else if (healthConnectManager.isAvailable()) {
-            healthDiagnostic = "워치 심박수를 보려면 아래 '심박수 측정' 버튼을 눌러 권한을 허용해주세요."
-        } else {
-            healthDiagnostic = "이 기기에 Health Connect 앱이 설치되어 있지 않습니다. Play 스토어에서 설치해주세요."
+        } catch (e: Exception) {
+            healthDiagnostic = "워치 심박수 확인 중 오류: ${e.message ?: "알 수 없는 오류"}"
         }
     }
 
@@ -107,17 +112,25 @@ fun ProfileScreen(
 
     fun measureFromWatch() {
         scope.launch {
-            when (val result = healthConnectManager.readLatestHeartRate()) {
-                is HeartRateReadResult.Success -> {
-                    healthDiagnostic = null
-                    viewModel.measure(name, result.bpm.toDouble(), "galaxy_watch")
+            try {
+                when (val result = healthConnectManager.readLatestHeartRate()) {
+                    is HeartRateReadResult.Success -> {
+                        healthDiagnostic = null
+                        viewModel.measure(name, result.bpm.toDouble(), "galaxy_watch")
+                    }
+                    is HeartRateReadResult.PermissionRequired ->
+                        healthPermissionLauncher.launch(healthConnectManager.permissions)
+                    else -> {
+                        healthDiagnostic = describeResult(result)
+                        viewModel.measure(name)
+                    }
                 }
-                is HeartRateReadResult.PermissionRequired ->
-                    healthPermissionLauncher.launch(healthConnectManager.permissions)
-                else -> {
-                    healthDiagnostic = describeResult(result)
-                    viewModel.measure(name)
-                }
+            } catch (e: Exception) {
+                // readLatestHeartRate() should never throw (it wraps its own
+                // provider calls), but this button must never silently do
+                // nothing again if something unexpected still slips through.
+                healthDiagnostic = "워치 심박수 조회 중 오류: ${e.message ?: "알 수 없는 오류"}"
+                viewModel.measure(name)
             }
         }
     }
