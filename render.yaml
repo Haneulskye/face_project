@@ -4,12 +4,17 @@ services:
     env: python
     plan: free
     region: singapore
-    # Render's native Python build environment has a read-only system
-    # filesystem — `apt-get install` fails outright there, so git-lfs has to
-    # already be on the image (Render documents native LFS support). No
+    # git-lfs is neither preinstalled on Render's native Python image nor
+    # installable via apt-get there (the system filesystem is read-only —
+    # apt-get fails outright). Fetch the static binary release straight from
+    # GitHub into the build's own (writable) working directory instead. No
     # `|| true` on the pull: a broken model pull should fail the deploy
     # loudly, not silently ship corrupt (pointer-file) models.
-    buildCommand: "git lfs pull && pip install -r requirements-web.txt"
+    buildCommand: >-
+      curl -sL https://github.com/git-lfs/git-lfs/releases/download/v3.5.1/git-lfs-linux-amd64-v3.5.1.tar.gz | tar xz &&
+      ./git-lfs-3.5.1/git-lfs install --local &&
+      ./git-lfs-3.5.1/git-lfs pull &&
+      pip install -r requirements-web.txt
     startCommand: "uvicorn backend.api:app --host 0.0.0.0 --port $PORT"
     healthCheckPath: /health
     envVars:
