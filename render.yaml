@@ -4,9 +4,20 @@ services:
     env: python
     plan: free
     region: singapore
-    buildCommand: "git lfs pull || true; pip install -r requirements-web.txt"
+    # git-lfs isn't preinstalled on Render's native Python image — without
+    # explicitly installing it, `git lfs pull` silently no-ops and the app
+    # loads corrupt (pointer-file) models at runtime instead of failing the
+    # build where it's obvious. No `|| true` here on purpose: a broken model
+    # pull should fail the deploy loudly, not ship silently.
+    buildCommand: >-
+      apt-get update -y && apt-get install -y git-lfs &&
+      git lfs install &&
+      git lfs pull &&
+      pip install -r requirements-web.txt
     startCommand: "uvicorn backend.api:app --host 0.0.0.0 --port $PORT"
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
+      - key: ADMIN_TOKEN
+        generateValue: true
