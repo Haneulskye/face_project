@@ -90,6 +90,12 @@ final class APIClient {
     ) async -> APIResult<T> {
         var request = URLRequest(url: APIConfig.baseURL.appendingPathComponent(path))
         request.httpMethod = method
+        // 무료 ngrok 터널은 브라우저처럼 보이는 요청(User-Agent에 "Mozilla" 포함,
+        // 캠퍼스 와이파이의 프록시/필터가 헤더를 건드리는 경우 포함)에 JSON 대신
+        // "방문 확인" 인터스티셜 HTML 페이지를 200 OK로 돌려준다 — 이러면 아래
+        // JSONDecoder가 실패해 "서버 응답을 해석하지 못했습니다" 로 보인다.
+        // 이 헤더를 보내면 항상 우회된다.
+        request.setValue("true", forHTTPHeaderField: "ngrok-skip-browser-warning")
 
         if let multipart {
             request.setValue("multipart/form-data; boundary=\(multipart.boundary)", forHTTPHeaderField: "Content-Type")
@@ -108,13 +114,19 @@ final class APIClient {
                     let decoded = try JSONDecoder().decode(T.self, from: data)
                     return .success(decoded)
                 } catch {
+                    // 디버깅용: 실제로 어떤 응답이 왔는지(예: ngrok 인터스티셜 HTML,
+                    // 필드 이름 불일치 등) 콘솔에서 바로 확인할 수 있게 원문을 남긴다.
+                    let bodyPreview = String(data: data.prefix(500), encoding: .utf8) ?? "<non-utf8 \(data.count) bytes>"
+                    print("[APIClient] decode failed for \(path): \(error)\n  body: \(bodyPreview)")
                     return .failure("서버 응답을 해석하지 못했습니다.")
                 }
             } else {
                 let detail = try? JSONDecoder().decode(ApiErrorBody.self, from: data).detail
+                print("[APIClient] \(path) -> HTTP \(httpResponse.statusCode), detail: \(detail ?? "nil")")
                 return .failure(Self.userMessage(for: detail, statusCode: httpResponse.statusCode))
             }
         } catch {
+            print("[APIClient] request to \(path) failed: \(error)")
             return .failure("서버에 연결할 수 없습니다. 네트워크와 서버 주소를 확인해주세요.")
         }
     }

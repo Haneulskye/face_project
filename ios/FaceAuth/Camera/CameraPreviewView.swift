@@ -6,8 +6,13 @@ struct CameraPreviewView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> PreviewUIView {
         let view = PreviewUIView()
-        view.videoPreviewLayer.session = session
         view.videoPreviewLayer.videoGravity = .resizeAspectFill
+        // 세션 대입을 다음 런루프로 미룬다 — 같은 트랜잭션에서 형제 GeometryReader가
+        // 마운트되는 동안 이 대입이 프리뷰 레이어 레이아웃을 즉시 강제하면
+        // AttributeGraph가 "cyclic graph" 크래시를 낸다.
+        DispatchQueue.main.async {
+            view.videoPreviewLayer.session = session
+        }
         return view
     }
 

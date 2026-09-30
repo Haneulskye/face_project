@@ -18,11 +18,17 @@ struct FaceScanView: View {
             ZStack {
                 Color.black
 
+                // camera.isReadyToCapture가 true로 바뀌는 순간 이 뷰와 아래 switch 안의
+                // FaceAlignmentGuideOverlay(GeometryReader)가 같은 트랜잭션에서 함께
+                // 처음 마운트되면 AttributeGraph가 "cyclic graph" 크래시를 낸다.
+                // 그래서 카메라 프리뷰는 switch 밖에 항상 마운트해두고, 준비되기 전엔
+                // 그냥 안 보이게(opacity 0)만 해서 두 마운트 타이밍을 분리한다.
+                CameraPreviewView(session: camera.session)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .opacity(isPreviewReady ? 1 : 0)
+
                 switch camera.authorizationStatus {
                 case .authorized where camera.isReadyToCapture:
-                    CameraPreviewView(session: camera.session)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-
                     // FaceID 스타일 가이드: 얼굴(과 눈)을 맞춰야 하는 타원 표시.
                     FaceAlignmentGuideOverlay()
 
@@ -100,6 +106,10 @@ struct FaceScanView: View {
                 viewModel.resetError()
             }
         }
+    }
+
+    private var isPreviewReady: Bool {
+        camera.authorizationStatus == .authorized && camera.isReadyToCapture
     }
 
     private var isBusy: Bool {
