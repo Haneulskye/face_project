@@ -8,6 +8,14 @@
     <!-- Health Connect: read heart rate synced from a paired watch (e.g. Galaxy Watch). -->
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
 
+    <!-- Android 11+ package visibility: without this, the app can't resolve/launch
+         Health Connect's own permission screen — the request silently resolves to
+         "denied" with no UI ever shown, and Health Connect never even records that
+         this app asked. -->
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+    </queries>
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"

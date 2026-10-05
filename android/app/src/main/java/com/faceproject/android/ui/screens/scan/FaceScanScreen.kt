@@ -45,6 +45,8 @@ import androidx.compose.ui.unit.dp
 import com.faceproject.android.camera.CameraPreview
 import com.faceproject.android.camera.capturePhoto
 import com.faceproject.android.data.CapturedImageHolder
+import com.faceproject.android.health.HealthConnectManager
+import com.faceproject.android.health.HeartRateReadResult
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -63,6 +65,7 @@ fun FaceScanScreen(
     val context = LocalContext.current
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
     var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
+    val healthConnectManager = remember { HealthConnectManager(context) }
 
     LaunchedEffect(Unit) {
         if (!cameraPermissionState.status.isGranted) {
@@ -74,6 +77,19 @@ fun FaceScanScreen(
     val successState = viewModel.uiState as? FaceScanUiState.Success
     LaunchedEffect(successState) {
         if (successState != null) {
+            // 얼굴 인증과 동시에 워치 심박수도 같이 읽어서 기록한다. Health Connect
+            // 권한을 한 번도 허용한 적 없으면(프로필 화면 방문 전) 조용히 건너뛴다 —
+            // 여기선 권한 팝업을 새로 띄우지 않는 best-effort 동작.
+            try {
+                if (healthConnectManager.hasPermission()) {
+                    val result = healthConnectManager.readLatestHeartRate()
+                    if (result is HeartRateReadResult.Success) {
+                        viewModel.syncHeartRate(successState.name, result.bpm.toDouble(), "galaxy_watch")
+                    }
+                }
+            } catch (e: Exception) {
+                // 심박수 동기화 실패가 인증 완료 흐름을 막으면 안 된다.
+            }
             delay(700)
             onAuthenticated(successState.name)
             viewModel.resetError()

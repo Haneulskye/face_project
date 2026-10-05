@@ -67,4 +67,12 @@ class FaceScanViewModel(
     fun resetError() {
         uiState = FaceScanUiState.Idle
     }
+
+    // 얼굴 인증과 동시에 워치 심박수도 자동으로 같이 기록한다 — 실패해도
+    // (워치 미연결, Health Connect 권한 미허용 등) 인증 결과에는 영향 없는 best-effort.
+    fun syncHeartRate(name: String, bpm: Double, source: String) {
+        viewModelScope.launch {
+            repository.measureHeartRate(name, bpm, source)
+        }
+    }
 }

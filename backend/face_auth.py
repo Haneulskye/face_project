@@ -27,7 +27,12 @@ DATABASE_PATH = os.path.join(
     "database.pkl"
 )
 
-FACE_THRESHOLD = 0.65
+FACE_THRESHOLD = 0.68
+# 0.65였을 때 등록된 두 사람(성별도 다름)의 교차 유사도가 0.6467로 거의
+# threshold에 닿아있었다 — 특정 성별 조합 문제가 아니라 기준 자체가
+# 너무 느슨했던 것. 0.72로 올렸더니 이번엔 본인도 못 알아보는 false
+# reject가 바로 발생해서 0.68로 절충. 그래도 애매하면 등록 사진을
+# 밝고 정면으로 다시 찍는 게 임계값 조정보다 근본적인 해결책이다.
 
 # Laplacian-variance focus measure below this is rejected at registration
 # only (not at auth) — a blurry stored template is a bigger long-term risk
