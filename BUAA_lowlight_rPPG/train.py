@@ -440,8 +440,96 @@ class EfficientPhysBaseline(nn.Module):
 
 
 # ============================================================
-# Model B: EfficientPhys + BiGRU
+# Model B: EfficientPhys + GRU
 # ============================================================
+
+class EfficientPhysGRU(nn.Module):
+    def __init__(
+        self,
+        frame_depth=10,
+        hidden_dim=128,
+    ):
+        super().__init__()
+
+        self.backbone = EfficientPhysFeatureBackbone(
+            frame_depth=frame_depth
+        )
+
+        self.gru = nn.GRU(
+            input_size=128,
+            hidden_size=hidden_dim,
+            batch_first=True,
+            bidirectional=False
+        )
+
+        self.head = nn.Linear(
+            hidden_dim,
+            1
+        )
+
+    def forward(self, frames):
+        feat = self.backbone(frames)
+
+        temporal, _ = self.gru(
+            feat
+        )
+
+        pred = self.head(
+            temporal
+        ).squeeze(-1)
+
+        return pred
+
+
+# ============================================================
+# Model C: EfficientPhys + BiGRU
+# ============================================================
+
+
+# ============================================================
+# Parameter-matched control
+# Same parameter count as EfficientPhys + BiGRU
+# No recurrent / temporal sequence modeling
+# ============================================================
+
+class EfficientPhysParamMatched(nn.Module):
+    def __init__(
+        self,
+        frame_depth=10,
+    ):
+        super().__init__()
+
+        self.backbone = EfficientPhysFeatureBackbone(
+            frame_depth=frame_depth
+        )
+
+        # Applied independently to every timestep.
+        #
+        # Parameter count:
+        # 128 -> 140  : 18,060
+        # 140 -> 1270 : 179,070
+        # 1270 -> 1   : 1,271
+        # head total   : 198,401
+        #
+        # backbone     : 467,202
+        # whole model  : 665,603
+        self.head = nn.Sequential(
+            nn.Linear(128, 140),
+            nn.Tanh(),
+            nn.Linear(140, 1270),
+            nn.Tanh(),
+            nn.Linear(1270, 1),
+        )
+
+    def forward(self, frames):
+        feat = self.backbone(frames)
+
+        # feat: (B, T, 128)
+        # MLP operates independently at each timestep.
+        pred = self.head(feat).squeeze(-1)
+
+        return pred
+
 
 class EfficientPhysBiGRU(nn.Module):
     def __init__(
@@ -683,6 +771,8 @@ def main():
         "--model",
         choices=[
             "efficientphys",
+            "efficientphys_gru",
+            "efficientphys_parammatch",
             "efficientphys_bigru"
         ],
         required=True
@@ -948,11 +1038,29 @@ def main():
             frame_depth=args.frame_depth
         )
 
-    else:
+    elif args.model == "efficientphys_gru":
+
+        model = EfficientPhysGRU(
+            frame_depth=args.frame_depth,
+            hidden_dim=args.hidden_dim
+        )
+
+    elif args.model == "efficientphys_parammatch":
+
+        model = EfficientPhysParamMatched(
+            frame_depth=args.frame_depth
+        )
+
+    elif args.model == "efficientphys_bigru":
 
         model = EfficientPhysBiGRU(
             frame_depth=args.frame_depth,
             hidden_dim=args.hidden_dim
+        )
+
+    else:
+        raise ValueError(
+            f"Unknown model: {args.model}"
         )
 
     model = model.to(device)
